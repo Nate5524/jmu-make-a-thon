@@ -668,14 +668,14 @@
       <div id="musicContent"><span class="no-items">Loading…</span></div>
       <div class="music-controls-row" id="musicControls" aria-label="Playback controls">
         <button type="button" class="music-icon-btn" id="musicPrevBtn" title="Previous" aria-label="Previous track">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 6 20 18 12 6 4"/></svg>
+          <p class="music-prev">⏮</p>
         </button>
         <button type="button" class="music-icon-btn" id="musicPlayPauseBtn" title="Play or pause" aria-label="Play or pause">
-          <svg class="music-pp-play" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-          <svg class="music-pp-pause" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          <p class="music-pp-play">▶</p>
+          <p class="music-pp-pause">⏸</p>
         </button>
         <button type="button" class="music-icon-btn" id="musicNextBtn" title="Next" aria-label="Next track">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="18 4 6 12 18 20 18 4"/></svg>
+          <p class="music-next">⏭</p>
         </button>
       </div>
       <button type="button" class="music-web-btn" id="musicWebPlayerBtn">Play in this browser (Premium)</button>
@@ -739,6 +739,7 @@
   </section>
 </div>
 
+<script src="./jarvis-accepted-functions.js"></script>
 <script>
 // ─── Config ───────────────────────────────────────────────────────────────────
 //
@@ -1167,6 +1168,178 @@ function postChatMessage(role, content) {
   }).catch((e) => console.warn('Failed to sync chat message to server', e));
 }
 
+function normalizeAssistantContent(content) {
+  if (content == null) return '';
+  if (typeof content === 'string') return content.trim();
+  if (Array.isArray(content)) {
+    return content
+      .filter((b) => b && (b.type === 'text' || b.text))
+      .map((b) => (typeof b.text === 'string' ? b.text : ''))
+      .join('')
+      .trim();
+  }
+  return String(content).trim();
+}
+
+async function dispatchJarvisTool(name, args) {
+  if (!args || typeof args !== 'object') {
+    throw new Error('Tool arguments must be an object.');
+  }
+  switch (name) {
+    case 'create_calendar_event':
+      await executeJarvisAction({
+        type: 'create_event',
+        summary: args.summary,
+        date: args.date,
+        allDay: args.allDay,
+        endDate: args.endDate,
+        startTime: args.startTime,
+        endTime: args.endTime,
+        description: args.description,
+      });
+      return;
+    case 'delete_calendar_event':
+      await executeJarvisAction({ type: 'delete_event', id: args.id });
+      return;
+    case 'edit_calendar_event':
+      await executeJarvisAction({
+        type: 'edit_event',
+        id: args.id,
+        summary: args.summary,
+        description: args.description,
+        allDay: args.allDay,
+        date: args.date,
+        endDate: args.endDate,
+        startTime: args.startTime,
+        endTime: args.endTime,
+      });
+      return;
+    default:
+      throw new Error('Unknown tool: ' + name);
+  }
+}
+
+/**
+ * Multi-turn Puter function calling: run tools until the model returns a text reply.
+ * Mutates `messages` with assistant + tool messages between rounds.
+ */
+async function completeJarvisWithTools(messages, chatOptions) {
+  const maxToolRounds = 10;
+  let response = await puter.ai.chat(messages, chatOptions);
+
+  for (let round = 0; round < maxToolRounds; round++) {
+    const msg = response && response.message;
+    if (!msg) break;
+
+    const toolCalls = msg.tool_calls;
+    if (!Array.isArray(toolCalls) || toolCalls.length === 0) {
+      const text = normalizeAssistantContent(msg.content);
+      if (text) return text;
+      return "I'm not sure how to answer that — could you rephrase?";
+    }
+
+    messages.push({
+      role: 'assistant',
+      content: msg.content == null ? '' : msg.content,
+      tool_calls: toolCalls,
+    });
+
+    for (const tc of toolCalls) {
+      const toolCallId = tc.id;
+      const fnName = tc.function && tc.function.name;
+      let resultPayload;
+      try {
+        const rawArgs = (tc.function && tc.function.arguments) || '{}';
+        const args = JSON.parse(rawArgs);
+        await dispatchJarvisTool(fnName, args);
+        resultPayload = { ok: true };
+      } catch (err) {
+        console.error('Jarvis tool error:', fnName, err);
+        resultPayload = { ok: false, error: err.message || String(err) };
+      }
+      messages.push({
+        role: 'tool',
+        tool_call_id: toolCallId,
+        content: JSON.stringify(resultPayload),
+      });
+    }
+
+    response = await puter.ai.chat(messages, chatOptions);
+  }
+
+  return 'My apologies — that took too many steps. Please try a simpler request.';
+}
+
+async function executeJarvisAction(action) {
+  switch (action.type) {
+    case 'delete_event': {
+      if (typeof action.id !== 'string' || !action.id.trim()) {
+        throw new Error('delete_event requires an id.');
+      }
+      await deleteCalendarEvent(action.id);
+      return;
+    }
+    case 'edit_event': {
+      if (typeof action.id !== 'string' || !action.id.trim()) {
+        throw new Error('edit_event requires an id.');
+      }
+
+      const patch = {};
+      if (action.summary !== undefined) patch.summary = action.summary;
+      if (action.description !== undefined) patch.description = action.description;
+
+      if (action.allDay) {
+        if (typeof action.date !== 'string' || !action.date.trim()) {
+          throw new Error('All-day edit_event requires a date.');
+        }
+        patch.allDay = true;
+        patch.startDate = action.date;
+        if (action.endDate !== undefined) patch.endDate = action.endDate;
+      } else {
+        const hasTimedFields = action.date !== undefined || action.startTime !== undefined || action.endTime !== undefined;
+        if (hasTimedFields) {
+          if (
+            typeof action.date !== 'string' ||
+            typeof action.startTime !== 'string' ||
+            typeof action.endTime !== 'string'
+          ) {
+            throw new Error('Timed edit_event requires date, startTime, and endTime.');
+          }
+          patch.start = `${action.date}T${action.startTime}:00`;
+          patch.end = `${action.date}T${action.endTime}:00`;
+        }
+      }
+
+      await updateCalendarEvent(action.id, patch);
+      return;
+    }
+    case 'create_event': {
+      if (typeof action.summary !== 'string' || !action.summary.trim()) {
+        throw new Error('create_event requires a summary.');
+      }
+      if (typeof action.date !== 'string' || !action.date.trim()) {
+        throw new Error('create_event requires a date.');
+      }
+
+      if (action.allDay) {
+        await createCalendarEvent(action.summary, action.date, action.endDate, action.description);
+        return;
+      }
+
+      if (typeof action.startTime !== 'string' || typeof action.endTime !== 'string') {
+        throw new Error('Timed create_event requires startTime and endTime.');
+      }
+
+      const startISO = `${action.date}T${action.startTime}:00`;
+      const endISO = `${action.date}T${action.endTime}:00`;
+      await createCalendarEvent(action.summary, startISO, endISO, action.description);
+      return;
+    }
+    default:
+      console.warn('Unknown Jarvis action type:', action);
+  }
+}
+
 // ─── Chat / LLM ───────────────────────────────────────────────────────────────
 async function sendToJarvis(userText) {
   addMessage('user', userText);
@@ -1197,62 +1370,20 @@ async function sendToJarvis(userText) {
     ...conversationHistory.slice(-20),
   ];
 
+  if (typeof JARVIS_TOOLS === 'undefined' || !Array.isArray(JARVIS_TOOLS)) {
+    setStatus('Error — tool definitions missing');
+    const errMsg = 'Configuration error: jarvis-accepted-functions.js did not load.';
+    conversationHistory.push({ role: 'assistant', content: errMsg });
+    addMessage('assistant', errMsg);
+    postChatMessage('assistant', errMsg);
+    return;
+  }
+
+  // const chatOptions = { model: 'gpt-4o-mini', stream: false, tools: JARVIS_TOOLS };
+  const chatOptions = { stream: false, tools: JARVIS_TOOLS };
+
   try {
-    const response = await puter.ai.chat(messages, { model: 'gpt-4o-mini', stream: false });
-    let reply = response.message?.content || response?.toString() || 'I seem to be at a loss for words.';
-
-    // Parse and execute action blocks: DELETE, EDIT, CREATE (in that order)
-    const deleteMatch = reply.match(/\[DELETE_EVENT\]([\s\S]*?)\[\/DELETE_EVENT\]/);
-    if (deleteMatch) {
-      try {
-        const d = JSON.parse(deleteMatch[1]);
-        await deleteCalendarEvent(d.id);
-      } catch (err) {
-        console.error('Failed to delete event from Jarvis:', err);
-      }
-      reply = reply.replace(/\[DELETE_EVENT\][\s\S]*?\[\/DELETE_EVENT\]/, '').trim();
-    }
-
-    const editMatch = reply.match(/\[EDIT_EVENT\]([\s\S]*?)\[\/EDIT_EVENT\]/);
-    if (editMatch) {
-      try {
-        const d = JSON.parse(editMatch[1]);
-        const { id, ...fields } = d;
-        const patch = {};
-        if (fields.summary !== undefined) patch.summary = fields.summary;
-        if (fields.description !== undefined) patch.description = fields.description;
-        if (fields.allDay) {
-          patch.allDay = true;
-          patch.startDate = fields.date;
-          if (fields.endDate) patch.endDate = fields.endDate;
-        } else if (fields.date && fields.startTime && fields.endTime) {
-          patch.start = `${fields.date}T${fields.startTime}:00`;
-          patch.end = `${fields.date}T${fields.endTime}:00`;
-        }
-        await updateCalendarEvent(id, patch);
-      } catch (err) {
-        console.error('Failed to edit event from Jarvis:', err);
-      }
-      reply = reply.replace(/\[EDIT_EVENT\][\s\S]*?\[\/EDIT_EVENT\]/, '').trim();
-    }
-
-    const eventMatch = reply.match(/\[CREATE_EVENT\]([\s\S]*?)\[\/CREATE_EVENT\]/);
-    if (eventMatch) {
-      try {
-        const evData = JSON.parse(eventMatch[1]);
-        if (evData.allDay) {
-          await createCalendarEvent(evData.summary, evData.date, undefined);
-        } else {
-          const startISO = `${evData.date}T${evData.startTime}:00`;
-          const endISO = `${evData.date}T${evData.endTime}:00`;
-          await createCalendarEvent(evData.summary, startISO, endISO);
-        }
-      } catch (evErr) {
-        console.error('Failed to create event from Jarvis:', evErr);
-      }
-      reply = reply.replace(/\[CREATE_EVENT\][\s\S]*?\[\/CREATE_EVENT\]/, '').trim();
-    }
-
+    const reply = await completeJarvisWithTools(messages, chatOptions);
     conversationHistory.push({ role: 'assistant', content: reply });
     addMessage('assistant', reply);
     postChatMessage('assistant', reply);
@@ -1295,7 +1426,7 @@ async function speakText(text) {
 // ─── STT (mic recording) ─────────────────────────────────────────────────────
 async function startRecording() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    setStatus('Microphone requires HTTPS or localhost — try http://localhost:3000');
+    setStatus('Microphone requires an HTTPS connection');
     return;
   }
   try {
