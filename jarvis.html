@@ -132,6 +132,20 @@
     .event-summary { color: var(--text); }
     .no-items { color: var(--text-dim); font-size: .8rem; font-style: italic; }
 
+    .device-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: .8rem;
+      padding: .35rem 0;
+      border-bottom: 1px solid rgba(30,58,95,.5);
+    }
+    .device-row:last-child { border-bottom: none; }
+    .device-name { color: var(--text); }
+    .device-state { font-weight: 600; font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
+    .device-state.on { color: var(--success); }
+    .device-state.off { color: var(--text-dim); }
+
     /* ---------- chat ---------- */
     .chat {
       display: flex;
@@ -261,6 +275,7 @@
 <header>
   <a class="logo" href="./index.html">PowerSleep</a>
   <div class="header-actions">
+    <a class="btn" href="./admin.html" title="Shared demo state for judges">Demo controls</a>
     <button class="btn" id="btnGoogleAuth" onclick="handleGoogleAuth()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Connect Google Calendar
@@ -282,6 +297,10 @@
     <div class="card" id="calendarCard">
       <h3>Today's Schedule</h3>
       <div id="calendarContent"><span class="no-items">Connect Google Calendar to see events</span></div>
+    </div>
+    <div class="card" id="smartHomeCard">
+      <h3>Smart home (demo)</h3>
+      <div id="smartHomeContent"><span class="no-items">Loading demo state…</span></div>
     </div>
   </aside>
 
@@ -319,14 +338,18 @@
 //    a) Go to console.cloud.google.com → create/select a project
 //    b) Enable "Google Calendar API"
 //    c) Go to "Credentials" → Create OAuth 2.0 Client ID (Web application)
-//       - Authorized JavaScript origins: http://localhost:5173
+//       - Authorized JavaScript origins must include this app's origin, e.g.
+//         http://localhost:3000 and your deployed URL (not port 5173 — the app
+//         is served by server.mjs in dev and prod).
 //    d) Also create an API Key (restrict to Calendar API)
 //    e) Paste both below
 //
 // 3) WEATHER: Automatic via Open-Meteo. Falls back to Harrisonburg VA if
 //    geolocation is denied.
 //
-// 4) SERVING: `npm run dev` then open ./jarvis.html (same folder as index.html)
+// 4) DEMO STATE: Run `npm run dev`, open /jarvis.html. Shared feed + smart home
+//    toggles are loaded from GET /api/state (see server.mjs). Judges edit via
+//    /admin.html with ADMIN_SECRET. Two browsers on the same server share state.
 //
 const GOOGLE_CLIENT_ID = '';  // e.g. '123456.apps.googleusercontent.com'
 const GOOGLE_API_KEY    = '';  // e.g. 'AIza...'
@@ -342,6 +365,12 @@ let audioChunks = [];
 let googleTokenClient = null;
 let gapiInited = false;
 let gisInited = false;
+
+/** Injected from shared server state (GET /api/state); merged into system prompt / context. */
+let remotePersonality = '';
+/** @type {{ devices: Array<{ id: string, name: string, on: boolean }> }} */
+let remoteSmartHome = { devices: [] };
+let lastDemoRevision = -1;
 
 const messagesEl = document.getElementById('messages');
 const statusEl   = document.getElementById('status');
@@ -539,23 +568,40 @@ function buildContextString() {
     parts.push('Calendar: No events today (or calendar not connected).');
   }
 
+  if (remoteSmartHome.devices && remoteSmartHome.devices.length) {
+    const lines = remoteSmartHome.devices.map((d) => `- ${d.name}: ${d.on ? 'on' : 'off'}`);
+    parts.push(`Smart home (demo):\n${lines.join('\n')}`);
+  }
+
   return parts.join('\n\n');
 }
 
 const SYSTEM_PROMPT = `You are J.A.R.V.I.S., a highly capable, witty, and professional AI assistant inspired by Tony Stark's personal AI from the Iron Man films. You are concise, helpful, and occasionally dry-humored. When the user asks about their schedule, weather, or time, use ONLY the factual context provided below — do not make up events or weather. For all other topics, respond helpfully with your general knowledge. Keep responses to 2-3 sentences unless the user asks for detail.`;
 
+function postChatMessage(role, content) {
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role, content }),
+  }).catch((e) => console.warn('Failed to sync chat message to server', e));
+}
+
 // ─── Chat / LLM ───────────────────────────────────────────────────────────────
 async function sendToJarvis(userText) {
   addMessage('user', userText);
+  postChatMessage('user', userText);
   setStatus('Jarvis is thinking...');
 
   const contextBlock = buildContextString();
+  const demoBlock = remotePersonality.trim()
+    ? '\n\n--- DEMO FEED / PERSONALITY ---\n' + remotePersonality.trim()
+    : '';
 
   conversationHistory.push({ role: 'user', content: userText });
 
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPT + '\n\n--- LIVE CONTEXT ---\n' + contextBlock },
-    ...conversationHistory.slice(-20),  // keep last 20 turns for context window
+    { role: 'system', content: SYSTEM_PROMPT + demoBlock + '\n\n--- LIVE CONTEXT ---\n' + contextBlock },
+    ...conversationHistory.slice(-20),
   ];
 
   try {
@@ -564,6 +610,7 @@ async function sendToJarvis(userText) {
 
     conversationHistory.push({ role: 'assistant', content: reply });
     addMessage('assistant', reply);
+    postChatMessage('assistant', reply);
     setStatus('Speaking...');
     await speakText(reply);
     setStatus('Ready');
@@ -571,6 +618,7 @@ async function sendToJarvis(userText) {
     console.error('LLM error:', e);
     const fallback = "My apologies, I'm having trouble reaching the AI service. Please ensure you're signed in to Puter.";
     addMessage('assistant', fallback);
+    postChatMessage('assistant', fallback);
     setStatus('Error — check Puter connection');
   }
 }
@@ -678,6 +726,55 @@ function setStatus(msg) {
   statusEl.textContent = msg;
 }
 
+function renderSmartHome() {
+  const el = document.getElementById('smartHomeContent');
+  if (!el) return;
+  const devices = remoteSmartHome.devices || [];
+  if (!devices.length) {
+    el.innerHTML = '<span class="no-items">No devices (demo)</span>';
+    return;
+  }
+  el.innerHTML = devices.map((d) => `
+    <div class="device-row">
+      <span class="device-name">${escapeHtml(d.name)}</span>
+      <span class="device-state ${d.on ? 'on' : 'off'}">${d.on ? 'On' : 'Off'}</span>
+    </div>
+  `).join('');
+}
+
+function syncChatFromServer(serverHistory) {
+  if (!Array.isArray(serverHistory)) return;
+  const localLen = conversationHistory.length;
+  if (serverHistory.length <= localLen) return;
+  const newMessages = serverHistory.slice(localLen);
+  for (const msg of newMessages) {
+    conversationHistory.push(msg);
+    addMessage(msg.role, msg.content);
+  }
+}
+
+async function pollDemoState() {
+  try {
+    const r = await fetch('/api/state');
+    if (!r.ok) return;
+    const data = await r.json();
+    if (data.revision === lastDemoRevision) return;
+    lastDemoRevision = data.revision;
+    remotePersonality = typeof data.feed?.personality === 'string' ? data.feed.personality : '';
+    remoteSmartHome = data.smartHome && Array.isArray(data.smartHome.devices)
+      ? { devices: data.smartHome.devices }
+      : { devices: [] };
+    renderSmartHome();
+    syncChatFromServer(data.chatHistory);
+  } catch (e) {
+    console.warn('Demo state poll failed', e);
+    const el = document.getElementById('smartHomeContent');
+    if (el && lastDemoRevision < 0) {
+      el.innerHTML = '<span class="no-items">Demo server unavailable (run npm run dev)</span>';
+    }
+  }
+}
+
 // ─── Event listeners ──────────────────────────────────────────────────────────
 micBtn.addEventListener('mousedown', () => { if (!isRecording) startRecording(); });
 micBtn.addEventListener('mouseup', () => { if (isRecording) stopRecording(); });
@@ -707,6 +804,8 @@ function sendTextMessage() {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
   fetchWeather();
+  pollDemoState();
+  setInterval(pollDemoState, 2000);
 });
 </script>
 

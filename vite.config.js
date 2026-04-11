@@ -13,6 +13,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, "index.html"),
         jarvis: resolve(__dirname, "jarvis.html"),
+        admin: resolve(__dirname, "admin.html"),
       },
     },
   },
