@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>PowerSleep — Jarvis</title>
   <script src="https://js.puter.com/v2/"></script>
   <style>
@@ -617,6 +617,12 @@
 
     /* ---------- responsive ---------- */
     @media (max-width: 768px) {
+      /* iOS Safari: prefer svh (UI expanded) so layout height matches visible area; fall back to dvh/vh. */
+      body {
+        height: 100vh;
+        height: 100dvh;
+        height: 100svh;
+      }
       .sidebar-toggle { display: flex; }
       .sidebar-close { display: flex; }
       .logo { flex: 1; text-align: center; }
@@ -636,6 +642,10 @@
       }
       .sidebar.open {
         transform: translateX(0);
+      }
+      /* Keep the composer above Safari bottom chrome (URL bar can be ~44–83px) + home indicator. */
+      .input-bar {
+        padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px) + clamp(2.75rem, 12vmin, 4.25rem));
       }
     }
   </style>
