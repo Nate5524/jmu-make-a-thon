@@ -65,7 +65,7 @@ var JARVIS_TOOLS = [
     function: {
       name: 'set_demo_smart_home_device',
       description:
-        'Set the demo smart home devices shown in the sidebar. Device `ambient` is the lights (on/off). Device `blinds`: on=true means blinds raised/up, on=false means lowered/down.',
+        'Set the demo smart home devices shown in the sidebar. Device `ambient` is the lights (on/off). For `blinds`, prefer `open_demo_smart_home_blinds` / `close_demo_smart_home_blinds` (always fire webhooks). If you use this tool for blinds, `on=true` triggers the open webhook and `on=false` the close webhook every time (physical position is not tracked).',
       parameters: {
         type: 'object',
         properties: {
@@ -78,6 +78,42 @@ var JARVIS_TOOLS = [
         },
         required: ['device', 'on'],
       },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'open_demo_smart_home_blinds',
+      description:
+        'Raise/open the blinds. Always sends the physical open-blinds webhook when configured (same as the sidebar Open button).',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'close_demo_smart_home_blinds',
+      description:
+        'Lower/close the blinds. Always sends the physical close-blinds webhook when configured (same as the sidebar Close button).',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_demo_smart_home_lights_state',
+      description:
+        'Read the demo lights state (`ambient`) exactly as stored on the server — the same on/off the GUI sidebar shows. Use this before or after toggling so you stay aligned with the user’s mutual-trust model (physical toggle vs displayed state).',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'toggle_demo_smart_home_lights',
+      description:
+        'Flip the demo lights (`ambient`) on the server and trigger the same physical toggle path as the GUI (webhook when configured). Use when the user asks to toggle or switch the lights without specifying an absolute on/off.',
+      parameters: { type: 'object', properties: {} },
     },
   },
   {
@@ -146,7 +182,7 @@ var JARVIS_TOOLS = [
     function: {
       name: 'create_schedule',
       description:
-        'Schedule a future message or action. Use mode "static" for a fixed reminder (storedAssistantText is shown verbatim). Use mode "llm_followup" when you need live context at trigger time (e.g. daily calendar briefing): provide storedInstruction describing what to do, plus optional toolSteps to run first. Allowed toolSteps names: create_calendar_event, delete_calendar_event, edit_calendar_event, set_demo_smart_home_device, spotify_play, spotify_pause, spotify_skip_next, spotify_skip_previous, spotify_play_track, spotify_queue_track.',
+        'Schedule a future message or action. Use mode "static" for a fixed reminder (storedAssistantText is shown verbatim). Use mode "llm_followup" when you need live context at trigger time (e.g. daily calendar briefing): provide storedInstruction describing what to do, plus optional toolSteps to run first. Allowed toolSteps names: create_calendar_event, delete_calendar_event, edit_calendar_event, set_demo_smart_home_device, get_demo_smart_home_lights_state, toggle_demo_smart_home_lights, open_demo_smart_home_blinds, close_demo_smart_home_blinds, spotify_play, spotify_pause, spotify_skip_next, spotify_skip_previous, spotify_play_track, spotify_queue_track.',
       parameters: {
         type: 'object',
         properties: {

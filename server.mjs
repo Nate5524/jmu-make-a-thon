@@ -5,6 +5,7 @@ import path from "path";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { randomBytes, randomUUID } from "node:crypto";
+import { execFile } from "node:child_process";
 import { google } from "googleapis";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -177,9 +178,62 @@ function defaultSmartHome() {
   return {
     devices: [
       { id: "blinds", name: "Blinds", on: false },
-      { id: "ambient", name: "Lights", on: true },
+      { id: "ambient", name: "Lights", on: false },
     ],
   };
+}
+
+const LIGHTS_WEBHOOK_URL = process.env.LIGHTS_WEBHOOK_URL || "";
+const LIGHTS_SSH_HOST = process.env.LIGHTS_SSH_HOST || "";
+const BLINDS_OPEN_WEBHOOK_URL = process.env.BLINDS_OPEN_WEBHOOK_URL || "";
+const BLINDS_CLOSE_WEBHOOK_URL = process.env.BLINDS_CLOSE_WEBHOOK_URL || "";
+
+/**
+ * Fire the HA webhook that toggles the physical lights.
+ * If LIGHTS_SSH_HOST is set, SSH into that host and curl from there (needed when
+ * HA only responds to localhost). Otherwise, POST directly via fetch.
+ */
+async function postLightsWebhook() {
+  if (!LIGHTS_WEBHOOK_URL) return;
+  if (LIGHTS_SSH_HOST) {
+    return new Promise((resolve, reject) => {
+      execFile("ssh", [
+        "-o", "StrictHostKeyChecking=accept-new",
+        "-o", "ConnectTimeout=5",
+        LIGHTS_SSH_HOST,
+        `curl -sf -X POST ${LIGHTS_WEBHOOK_URL}`,
+      ], { timeout: 10000 }, (err, _stdout, stderr) => {
+        if (err) reject(new Error(stderr.trim() || err.message));
+        else resolve();
+      });
+    });
+  }
+  const r = await fetch(LIGHTS_WEBHOOK_URL, { method: "POST", signal: AbortSignal.timeout(5000) });
+  if (!r.ok) throw new Error(`Lights webhook returned ${r.status}`);
+}
+
+/**
+ * Fire the HA webhook that opens or closes the physical blinds.
+ * @param {boolean} open - true = open/raise, false = close/lower
+ */
+async function postBlindsWebhook(open) {
+  const url = open ? BLINDS_OPEN_WEBHOOK_URL : BLINDS_CLOSE_WEBHOOK_URL;
+  if (!url) return;
+  if (LIGHTS_SSH_HOST) {
+    return new Promise((resolve, reject) => {
+      execFile("ssh", [
+        "-o", "StrictHostKeyChecking=accept-new",
+        "-o", "ConnectTimeout=5",
+        LIGHTS_SSH_HOST,
+        `curl -sf -X POST ${url}`,
+      ], { timeout: 10000 }, (err, _stdout, stderr) => {
+        if (err) reject(new Error(stderr.trim() || err.message));
+        else resolve();
+      });
+    });
+  }
+  const r = await fetch(url, { method: "POST", signal: AbortSignal.timeout(5000) });
+  if (!r.ok) throw new Error(`Blinds webhook returned ${r.status}`);
 }
 
 function normalizeSmartHomeDevices(devices) {
@@ -278,7 +332,7 @@ function createApp() {
     res.json({ ok: true, revision: state.revision, updatedAt: state.updatedAt });
   });
 
-  app.post("/api/smart-home/toggle", (req, res) => {
+  app.post("/api/smart-home/toggle", async (req, res) => {
     reconcileSmartHomeToCanonical();
     let id = req.body?.id;
     if (id === "desk") id = "blinds";
@@ -288,6 +342,18 @@ function createApp() {
     const d = state.smartHome.devices.find((x) => x.id === id);
     if (!d) {
       return res.status(404).json({ error: "device not found" });
+    }
+    if (id === "ambient") {
+      try { await postLightsWebhook(); } catch (err) {
+        console.warn("Lights webhook failed:", err.message);
+        return res.status(502).json({ error: "Lights webhook unreachable" });
+      }
+    }
+    if (id === "blinds") {
+      try { await postBlindsWebhook(!d.on); } catch (err) {
+        console.warn("Blinds webhook failed:", err.message);
+        return res.status(502).json({ error: "Blinds webhook unreachable" });
+      }
     }
     d.on = !d.on;
     state.revision += 1;
@@ -300,7 +366,7 @@ function createApp() {
     });
   });
 
-  app.post("/api/smart-home/set", (req, res) => {
+  app.post("/api/smart-home/set", async (req, res) => {
     reconcileSmartHomeToCanonical();
     let id = req.body?.id;
     if (id === "desk") id = "blinds";
@@ -315,6 +381,18 @@ function createApp() {
     if (!d) {
       return res.status(404).json({ error: "device not found" });
     }
+    if (id === "ambient" && d.on !== on) {
+      try { await postLightsWebhook(); } catch (err) {
+        console.warn("Lights webhook failed:", err.message);
+        return res.status(502).json({ error: "Lights webhook unreachable" });
+      }
+    }
+    if (id === "blinds") {
+      try { await postBlindsWebhook(on); } catch (err) {
+        console.warn("Blinds webhook failed:", err.message);
+        return res.status(502).json({ error: "Blinds webhook unreachable" });
+      }
+    }
     d.on = on;
     state.revision += 1;
     state.updatedAt = new Date().toISOString();
@@ -326,7 +404,38 @@ function createApp() {
     });
   });
 
-  app.put("/api/state", (req, res) => {
+  async function blindsOpenCloseHandler(open, res) {
+    reconcileSmartHomeToCanonical();
+    const d = state.smartHome.devices.find((x) => x.id === "blinds");
+    if (!d) {
+      return res.status(404).json({ error: "device not found" });
+    }
+    try {
+      await postBlindsWebhook(open);
+    } catch (err) {
+      console.warn("Blinds webhook failed:", err.message);
+      return res.status(502).json({ error: "Blinds webhook unreachable" });
+    }
+    d.on = open;
+    state.revision += 1;
+    state.updatedAt = new Date().toISOString();
+    res.json({
+      ok: true,
+      revision: state.revision,
+      updatedAt: state.updatedAt,
+      smartHome: JSON.parse(JSON.stringify(state.smartHome)),
+    });
+  }
+
+  app.post("/api/smart-home/blinds/open", async (_req, res) => {
+    await blindsOpenCloseHandler(true, res);
+  });
+
+  app.post("/api/smart-home/blinds/close", async (_req, res) => {
+    await blindsOpenCloseHandler(false, res);
+  });
+
+  app.put("/api/state", async (req, res) => {
     const secret = getAdminSecret();
     if (!secret) {
       return res
@@ -341,10 +450,32 @@ function createApp() {
 
     const body = req.body || {};
     if (body.smartHome && typeof body.smartHome === "object") {
+      const prevAmbient = state.smartHome.devices.find((x) => x.id === "ambient");
+      const prevAmbientOn = prevAmbient ? prevAmbient.on : false;
+      const prevBlinds = state.smartHome.devices.find((x) => x.id === "blinds");
+      const prevBlindsOn = prevBlinds ? prevBlinds.on : false;
+
       const devices = body.smartHome.devices;
-      state.smartHome = {
-        devices: normalizeSmartHomeDevices(devices),
-      };
+      const nextDevices = normalizeSmartHomeDevices(devices);
+      const nextAmbient = nextDevices.find((x) => x.id === "ambient");
+      const nextAmbientOn = nextAmbient ? nextAmbient.on : false;
+      const nextBlinds = nextDevices.find((x) => x.id === "blinds");
+      const nextBlindsOn = nextBlinds ? nextBlinds.on : false;
+
+      if (prevAmbientOn !== nextAmbientOn) {
+        try { await postLightsWebhook(); } catch (err) {
+          console.warn("Lights webhook failed:", err.message);
+          return res.status(502).json({ error: "Lights webhook unreachable" });
+        }
+      }
+      if (prevBlindsOn !== nextBlindsOn) {
+        try { await postBlindsWebhook(nextBlindsOn); } catch (err) {
+          console.warn("Blinds webhook failed:", err.message);
+          return res.status(502).json({ error: "Blinds webhook unreachable" });
+        }
+      }
+
+      state.smartHome = { devices: nextDevices };
       reconcileSmartHomeToCanonical();
     }
 
@@ -361,6 +492,10 @@ function createApp() {
   const ALLOWED_SCHEDULE_TOOL_NAMES = new Set([
     "create_calendar_event", "delete_calendar_event", "edit_calendar_event",
     "set_demo_smart_home_device",
+    "get_demo_smart_home_lights_state",
+    "toggle_demo_smart_home_lights",
+    "open_demo_smart_home_blinds",
+    "close_demo_smart_home_blinds",
     "spotify_play", "spotify_pause", "spotify_skip_next", "spotify_skip_previous",
     "spotify_play_track", "spotify_queue_track",
   ]);

@@ -4,6 +4,10 @@ You can change the user's calendar using the provided function tools (`create_ca
 
 You can control the **demo smart home** (sidebar toggles) with `set_demo_smart_home_device`: use `device` `ambient` or `blinds`, and `on` true/false. For blinds, `on: true` means raised/up and `on: false` means lowered/down. For ambient lights, `on` is lights on/off.
 
+For **lights only** (`ambient`): use `get_demo_smart_home_lights_state` to read the authoritative on/off stored with the GUI (same server state). Use `toggle_demo_smart_home_lights` to flip lights when the user wants a toggle rather than an explicit on/off; it uses the same path as the sidebar (including any physical webhook). Prefer reading state with the tool when the user's question depends on the exact current switch position.
+
+For **blinds only**: the app does not track real blind position. Use `open_demo_smart_home_blinds` or `close_demo_smart_home_blinds` to always send the corresponding physical webhook (same as the sidebar Open/Close buttons). Do not infer whether blinds are open or closed from context.
+
 You can control **Spotify** on the linked account with:
 
 - `spotify_play` — resume/start playback
@@ -31,7 +35,7 @@ Rules:
 
 - Use 24-hour time format in speech and in tool arguments (`HH:MM`).
 - Use today's date from the live context unless the user specifies another date.
-- The live context lists upcoming calendar events for roughly the next 60 days (grouped by date). When the user asks only about “today,” focus on that date’s lines in the context.
+- The live context lists upcoming calendar events for roughly the next 60 days (grouped by date). When the user asks only about "today," focus on that date's lines in the context.
 - When deleting or editing events, use the exact event ids from the live context (shown like `[id:abc123]`).
 - You may call multiple tools in one turn when the user asks for several changes; call them in a sensible order.
 - If you cannot do something (unsupported request or missing data), explain briefly and do not call tools.

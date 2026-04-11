@@ -553,6 +553,38 @@
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
       }
 
+      .smart-home-blinds-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+      }
+      .smart-home-blinds-btn {
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.35rem 0.65rem;
+        border-radius: 0.35rem;
+        border: 1.5px solid rgba(148, 163, 184, 0.45);
+        background: rgba(30, 41, 59, 0.55);
+        color: var(--text);
+        cursor: pointer;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      .smart-home-blinds-btn:hover:not(:disabled) {
+        border-color: rgba(56, 189, 248, 0.55);
+        background: rgba(56, 189, 248, 0.12);
+      }
+      .smart-home-blinds-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .smart-home-blinds-btn--primary {
+        border-color: rgba(56, 189, 248, 0.55);
+        color: var(--accent);
+      }
+
       /* ---------- music (Spotify) ---------- */
       .music-hint {
         font-size: 0.72rem;
@@ -1783,7 +1815,7 @@
                 return {
                   devices: [
                     { id: "blinds", name: "Blinds", on: false },
-                    { id: "ambient", name: "Lights", on: true },
+                    { id: "ambient", name: "Lights", on: false },
                   ],
                 };
               }
@@ -1797,7 +1829,7 @@
               let blindsOn = false;
               if (blinds) blindsOn = !!blinds.on;
               else if (desk) blindsOn = !!desk.on;
-              let ambientOn = true;
+              let ambientOn = false;
               if (ambient) ambientOn = !!ambient.on;
               return {
                 devices: [
@@ -2316,7 +2348,9 @@
 
               if (remoteSmartHome.devices && remoteSmartHome.devices.length) {
                 const lines = remoteSmartHome.devices.map((d) => {
-                  if (isBlindsDevice(d)) return `- ${d.name}: ${d.on ? "up" : "down"}`;
+                  if (isBlindsDevice(d)) {
+                    return `- ${d.name}: use Open/Close (physical position is not tracked in the app)`;
+                  }
                   return `- ${d.name}: ${d.on ? "on" : "off"}`;
                 });
                 parts.push(`Smart home (demo):\n${lines.join("\n")}`);
@@ -2440,6 +2474,83 @@
                     renderSmartHome();
                   }
                   return { ok: true, device: dev, on };
+                }
+                case "get_demo_smart_home_lights_state": {
+                  const r = await fetch("./api/state");
+                  const data = await r.json().catch(() => ({}));
+                  if (!r.ok) {
+                    throw new Error(data.error || "Could not read smart home state.");
+                  }
+                  if (data.smartHome && Array.isArray(data.smartHome.devices)) {
+                    remoteSmartHome = normalizeSmartHomeClient(data.smartHome.devices);
+                    renderSmartHome();
+                  }
+                  const rev = Number(data.revision);
+                  if (Number.isFinite(rev)) lastDemoRevision = rev;
+                  const ambient = (remoteSmartHome.devices || []).find((d) => String(d.id).toLowerCase() === "ambient");
+                  const on = ambient ? !!ambient.on : false;
+                  return {
+                    ok: true,
+                    device: "ambient",
+                    on,
+                    note: "Authoritative lights state shared with the GUI sidebar.",
+                  };
+                }
+                case "toggle_demo_smart_home_lights": {
+                  const r = await fetch("./api/smart-home/toggle", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: "ambient" }),
+                  });
+                  const data = await r.json().catch(() => ({}));
+                  if (!r.ok) {
+                    throw new Error(data.error || "Lights toggle failed.");
+                  }
+                  if (data.smartHome && Array.isArray(data.smartHome.devices)) {
+                    remoteSmartHome = normalizeSmartHomeClient(data.smartHome.devices);
+                    renderSmartHome();
+                  }
+                  const rev = Number(data.revision);
+                  if (Number.isFinite(rev)) lastDemoRevision = rev;
+                  const ambient = (remoteSmartHome.devices || []).find((d) => String(d.id).toLowerCase() === "ambient");
+                  const on = ambient ? !!ambient.on : false;
+                  return { ok: true, device: "ambient", on };
+                }
+                case "open_demo_smart_home_blinds": {
+                  const r = await fetch("./api/smart-home/blinds/open", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: "{}",
+                  });
+                  const data = await r.json().catch(() => ({}));
+                  if (!r.ok) {
+                    throw new Error(data.error || "Blinds open failed.");
+                  }
+                  if (data.smartHome && Array.isArray(data.smartHome.devices)) {
+                    remoteSmartHome = normalizeSmartHomeClient(data.smartHome.devices);
+                    renderSmartHome();
+                  }
+                  const rev = Number(data.revision);
+                  if (Number.isFinite(rev)) lastDemoRevision = rev;
+                  return { ok: true, action: "open_blinds", note: "Open webhook sent (always)." };
+                }
+                case "close_demo_smart_home_blinds": {
+                  const r = await fetch("./api/smart-home/blinds/close", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: "{}",
+                  });
+                  const data = await r.json().catch(() => ({}));
+                  if (!r.ok) {
+                    throw new Error(data.error || "Blinds close failed.");
+                  }
+                  if (data.smartHome && Array.isArray(data.smartHome.devices)) {
+                    remoteSmartHome = normalizeSmartHomeClient(data.smartHome.devices);
+                    renderSmartHome();
+                  }
+                  const rev = Number(data.revision);
+                  if (Number.isFinite(rev)) lastDemoRevision = rev;
+                  return { ok: true, action: "close_blinds", note: "Close webhook sent (always)." };
                 }
                 case "spotify_play":
                   await spotifyResumePlayback();
@@ -3390,22 +3501,29 @@
               }
               const rows = devices
                 .map((d) => {
+                  if (isBlindsDevice(d)) {
+                    return `
+            <div class="smart-home-row">
+              <div class="smart-home-row__name">${escapeHtml(d.name)}</div>
+              <div class="smart-home-row__controls smart-home-blinds-actions">
+                <button type="button" class="smart-home-blinds-btn" data-blinds-action="close" aria-label="Close blinds">Close</button>
+                <button type="button" class="smart-home-blinds-btn smart-home-blinds-btn--primary" data-blinds-action="open" aria-label="Open blinds">Open</button>
+              </div>
+            </div>`;
+                  }
                   const v = d.on ? 1 : 0;
                   const idEsc = escapeHtml(d.id);
-                  const aria = isBlindsDevice(d) ? "Blinds" : "Lights";
-                  const leftLabel = isBlindsDevice(d) ? "Close" : "Off";
-                  const rightLabel = isBlindsDevice(d) ? "Open" : "On";
                   return `
             <div class="smart-home-row">
               <div class="smart-home-row__name">${escapeHtml(d.name)}</div>
               <div class="smart-home-row__controls">
-                <span class="smart-home-end-label smart-home-end-label--left">${leftLabel}</span>
+                <span class="smart-home-end-label smart-home-end-label--left">Off</span>
                 <label class="smart-home-toggle">
-                  <input type="checkbox" class="smart-home-slider" data-device-id="${idEsc}" ${v ? "checked" : ""} aria-label="${escapeHtml(aria)}" />
+                  <input type="checkbox" class="smart-home-slider" data-device-id="${idEsc}" ${v ? "checked" : ""} aria-label="Lights" />
                   <span class="smart-home-toggle__track"></span>
                   <span class="smart-home-toggle__thumb"></span>
                 </label>
-                <span class="smart-home-end-label smart-home-end-label--right">${rightLabel}</span>
+                <span class="smart-home-end-label smart-home-end-label--right">On</span>
               </div>
             </div>`;
                 })
@@ -3651,6 +3769,47 @@
               textInput.value = "";
               sendToJarvis(text);
             }
+
+            document.getElementById("smartHomeContent").addEventListener("click", async (e) => {
+              const btn = e.target.closest("[data-blinds-action]");
+              if (!btn) return;
+              const action = btn.dataset.blindsAction;
+              if (action !== "open" && action !== "close") return;
+              const wrap = btn.closest(".smart-home-blinds-actions");
+              const buttons = wrap ? [...wrap.querySelectorAll("[data-blinds-action]")] : [btn];
+              smartHomeMutationPending = true;
+              let commitSucceeded = false;
+              try {
+                buttons.forEach((b) => {
+                  b.disabled = true;
+                });
+                const path = action === "open" ? "./api/smart-home/blinds/open" : "./api/smart-home/blinds/close";
+                const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                  setStatus(data.error || "Blinds command failed");
+                  return;
+                }
+                if (data.smartHome && Array.isArray(data.smartHome.devices)) {
+                  remoteSmartHome = normalizeSmartHomeClient(data.smartHome.devices);
+                }
+                const rev = Number(data.revision);
+                if (Number.isFinite(rev)) lastDemoRevision = rev;
+                renderSmartHome();
+                commitSucceeded = true;
+              } catch (err) {
+                console.warn("Blinds command failed", err);
+                setStatus("Blinds command failed — is the server running?");
+              } finally {
+                smartHomeMutationPending = false;
+                if (!commitSucceeded) {
+                  buttons.forEach((b) => {
+                    b.disabled = false;
+                  });
+                }
+              }
+              if (commitSucceeded) setStatus("Ready");
+            });
 
             document.getElementById("smartHomeContent").addEventListener("change", async (e) => {
               const slider = e.target;

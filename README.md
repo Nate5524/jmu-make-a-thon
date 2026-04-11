@@ -70,6 +70,10 @@ Copy [`.env.example`](.env.example) to `.env` and adjust as needed.
 | `ADMIN_SECRET`      | Required for **writes** to `PUT /api/state` in production. In development, if unset, the server uses a default (`dev-demo-secret`) and logs a reminder. |
 | `JARVIS_PERSONALITY` | Optional. Overrides the in-code default extra Jarvis instructions. |
 | `ENABLE_ADMIN_UI`   | In **production** only: set to `true` to allow serving `./admin.html`. |
+| `LIGHTS_WEBHOOK_URL` | Optional. Full URL of the Home Assistant webhook that toggles the physical lights. If unset, the GUI controls update demo state only. |
+| `BLINDS_OPEN_WEBHOOK_URL` | Optional. HA webhook URL to **open/raise** blinds. |
+| `BLINDS_CLOSE_WEBHOOK_URL` | Optional. HA webhook URL to **close/lower** blinds. |
+| `LIGHTS_SSH_HOST` | Optional. `user@host` for SSH-based webhook delivery (needed when HA only responds to localhost). Used for both lights and blinds. |
 | `GOOGLE_CALENDAR_ID` | The Google Calendar ID to read/write events. Found in Calendar Settings > Integrate calendar. |
 | `CALENDAR_SERVICE_ACCOUNT` | The service account email (informational; the actual auth uses the key file). |
 
@@ -82,7 +86,8 @@ In-memory state is shared by every browser connected to the **same server proces
 - `GET ./api/state` -- read feed (personality from server config) and smart-home demo state.
 - `PUT ./api/state` -- update smart-home seed only; header `Authorization: Bearer <ADMIN_SECRET>`.
 - `POST ./api/smart-home/toggle` -- body `{ "id": "blinds" | "ambient" }`; flips that device (no admin secret).
-- `POST ./api/smart-home/set` -- body `{ "id": "blinds" | "ambient", "on": true | false }`; sets that device explicitly (no admin secret).
+- `POST ./api/smart-home/set` -- body `{ "id": "blinds" | "ambient", "on": true | false }`; sets that device (no admin secret). For **blinds**, the open/close webhook is sent on every call (not deduped by prior state).
+- `POST ./api/smart-home/blinds/open` / `POST ./api/smart-home/blinds/close` -- always send the open or close blinds webhook (Jarvis UI uses these).
 
 Jarvis polls `GET ./api/state` about every two seconds and merges `feed.personality` from the server into its system prompt.
 
