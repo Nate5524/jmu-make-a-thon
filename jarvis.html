@@ -610,7 +610,7 @@
       .music-volume-row {
         display: none;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.5rem 0.65rem;
         margin-top: 0.5rem;
       }
       .music-volume-row.visible {
@@ -623,12 +623,30 @@
         letter-spacing: 0.08em;
         color: var(--text-dim);
       }
-      .music-volume-row input[type="range"] {
+      .music-volume-slider-wrap {
         flex: 1;
         min-width: 0;
-        height: 6px;
+        display: flex;
+        align-items: center;
+        min-height: 22px;
+      }
+      .music-volume-slider-wrap input[type="range"] {
+        width: 100%;
+        height: 14px;
+        margin: 0;
         border-radius: 3px;
         appearance: none;
+        border: none;
+        outline: none;
+        background: transparent;
+        cursor: pointer;
+      }
+      /* Fill on WebKit track only (avoids double-drawn edge). Thumb taller than track → negative margin to center on track. */
+      .music-volume-slider-wrap input[type="range"]::-webkit-slider-runnable-track {
+        height: 6px;
+        border-radius: 3px;
+        border: none;
+        box-shadow: none;
         background: linear-gradient(
           to right,
           var(--accent) 0%,
@@ -636,35 +654,57 @@
           rgba(148, 163, 184, 0.25) var(--music-vol-pct, 70%),
           rgba(148, 163, 184, 0.25) 100%
         );
-        cursor: pointer;
       }
-      .music-volume-row input[type="range"]::-webkit-slider-thumb {
+      .music-volume-slider-wrap input[type="range"]::-moz-range-track {
+        height: 6px;
+        border-radius: 3px;
+        border: none;
+        background: rgba(148, 163, 184, 0.25);
+        box-shadow: none;
+      }
+      .music-volume-slider-wrap input[type="range"]::-moz-range-progress {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--accent);
+      }
+      .music-volume-slider-wrap input[type="range"]::-webkit-slider-thumb {
         appearance: none;
         width: 14px;
         height: 14px;
+        margin-top: -4px;
         border-radius: 50%;
         background: var(--text);
         border: 2px solid var(--accent);
         box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+        box-sizing: border-box;
       }
-      .music-volume-row input[type="range"]::-moz-range-thumb {
+      .music-volume-slider-wrap input[type="range"]::-moz-range-thumb {
         width: 14px;
         height: 14px;
         border-radius: 50%;
         background: var(--text);
         border: 2px solid var(--accent);
         box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+        box-sizing: border-box;
       }
-      .music-volume-row input[type="range"]:disabled {
+      .music-volume-slider-wrap input[type="range"]:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+      }
+      .music-volume-slider-wrap input[type="range"]:disabled {
         opacity: 0.45;
         cursor: not-allowed;
       }
       .music-volume-value {
         flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-end;
         font-size: 0.7rem;
+        line-height: 1;
         font-variant-numeric: tabular-nums;
         color: var(--text-dim);
-        min-width: 2.25rem;
+        min-width: 2.75rem;
         text-align: right;
       }
       .music-icon-btn {
@@ -1528,8 +1568,10 @@
           </div>
           <div class="music-volume-row" id="musicVolumeRow" aria-label="Playback volume">
             <label class="music-volume-label" for="musicVolumeSlider">Vol</label>
-            <input type="range" id="musicVolumeSlider" min="0" max="100" value="85" disabled />
-            <span class="music-volume-value" id="musicVolumeValue">—</span>
+            <div class="music-volume-slider-wrap">
+              <input type="range" id="musicVolumeSlider" min="0" max="100" value="85" disabled />
+            </div>
+            <span class="music-volume-value" id="musicVolumeValue">--</span>
           </div>
           <button type="button" class="music-web-btn" id="musicWebPlayerBtn">Play in this browser</button>
           <p class="music-web-status" id="musicWebStatus"></p>
@@ -2886,7 +2928,7 @@
             updateMusicVolumeFill(slider.value);
           } else {
             slider.disabled = true;
-            valEl.textContent = "—";
+            valEl.textContent = "--";
             updateMusicVolumeFill(slider.value);
           }
           return;
