@@ -26,9 +26,10 @@
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
+      height: 100vh;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
 
     header {
@@ -77,6 +78,7 @@
       grid-template-rows: 1fr auto;
       gap: 0;
       min-height: 0;
+      overflow: hidden;
     }
 
     /* ---------- sidebar ---------- */
@@ -85,10 +87,43 @@
       background: var(--surface);
       border-right: 1px solid var(--accent-dim);
       padding: 1rem;
-      overflow-y: auto;
+      overflow-y: scroll;
+      min-height: 0;
       display: flex;
       flex-direction: column;
       gap: 1rem;
+    }
+    .sidebar::-webkit-scrollbar {
+      width: 12px;
+      background: transparent;
+    }
+    .sidebar::-webkit-scrollbar-thumb {
+      background: rgba(148,163,184,.3);
+      border-radius: 3px;
+      background-clip: padding-box;
+      border-left: 3px solid transparent;
+      border-right: 3px solid transparent;
+    }
+    .sidebar::-webkit-scrollbar-button:single-button {
+      display: block;
+      width: 12px;
+      background-color: var(--surface);
+      background-size: 6px 6px;
+      background-repeat: no-repeat;
+      cursor: pointer;
+    }
+    .sidebar::-webkit-scrollbar-button:single-button:hover {
+      background-color: var(--surface-2);
+    }
+    .sidebar::-webkit-scrollbar-button:single-button:vertical:decrement {
+      height: 20px;
+      background-position: center bottom 4px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1 7L5 3l4 4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+    .sidebar::-webkit-scrollbar-button:single-button:vertical:increment {
+      height: 20px;
+      background-position: center top 4px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1 3L5 7l4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     }
 
     .card {
@@ -411,24 +446,93 @@
     }
     #devToolbar button:hover { background: #f59e0b22; }
 
-    /* responsive */
-    @media (max-width: 700px) {
+    /* ---------- sidebar toggle button ---------- */
+    .sidebar-toggle {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--accent-dim);
+      border-radius: 8px;
+      background: var(--surface-2);
+      color: var(--text);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: border-color .2s;
+    }
+    .sidebar-toggle:hover { border-color: var(--accent); }
+
+    .sidebar-close {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      align-self: flex-end;
+      width: 30px;
+      height: 30px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text-dim);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: color .2s;
+    }
+    .sidebar-close:hover { color: var(--text); }
+
+    .sidebar-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 99;
+      background: rgba(0,0,0,.5);
+    }
+    .sidebar-backdrop.visible { display: block; }
+
+    /* ---------- responsive ---------- */
+    @media (max-width: 768px) {
+      .sidebar-toggle { display: flex; }
+      .sidebar-close { display: flex; }
+      .logo { flex: 1; text-align: center; }
+      .header-actions { width: 36px; }
       .layout { grid-template-columns: 1fr; }
-      .sidebar { grid-row: auto; border-right: none; border-bottom: 1px solid var(--accent-dim); max-height: 35vh; }
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 280px;
+        z-index: 100;
+        grid-row: auto;
+        border-right: 1px solid var(--accent-dim);
+        transform: translateX(-100%);
+        transition: transform .25s ease;
+      }
+      .sidebar.open {
+        transform: translateX(0);
+      }
     }
   </style>
 </head>
 <body>
 
 <header>
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
   <a class="logo" href="./index.html">PowerSleep</a>
   <div class="header-actions">
   </div>
 </header>
 
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
 <div class="layout">
   <!-- Sidebar: weather + calendar -->
   <aside class="sidebar">
+    <button class="sidebar-close" id="sidebarClose" aria-label="Close sidebar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+    </button>
     <div class="card" id="weatherCard">
       <h3>Weather</h3>
       <div id="weatherContent"><span class="no-items">Loading weather...</span></div>
@@ -1332,6 +1436,20 @@ function initDevToolbar() {
     <button onclick="devClearChat()">Clear Chat</button>`;
   document.body.prepend(bar);
 }
+
+// ─── Sidebar toggle ──────────────────────────────────────────────────────────
+const sidebarEl = document.querySelector('.sidebar');
+const backdropEl = document.getElementById('sidebarBackdrop');
+document.getElementById('sidebarToggle').addEventListener('click', () => {
+  sidebarEl.classList.toggle('open');
+  backdropEl.classList.toggle('visible');
+});
+function closeSidebar() {
+  sidebarEl.classList.remove('open');
+  backdropEl.classList.remove('visible');
+}
+backdropEl.addEventListener('click', closeSidebar);
+document.getElementById('sidebarClose').addEventListener('click', closeSidebar);
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
