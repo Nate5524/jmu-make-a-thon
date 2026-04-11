@@ -559,30 +559,32 @@
         gap: 0.45rem;
         flex-wrap: wrap;
       }
+      /* Shared white style for lights + blinds controls */
       .smart-home-blinds-btn {
         font-size: 0.72rem;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-        padding: 0.35rem 0.65rem;
+        letter-spacing: 0.06em;
+        padding: 0.4rem 0.75rem;
+        min-width: 4.25rem;
         border-radius: 0.35rem;
-        border: 1.5px solid rgba(148, 163, 184, 0.45);
-        background: rgba(30, 41, 59, 0.55);
-        color: var(--text);
+        border: 1.5px solid rgba(255, 255, 255, 0.55);
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.95);
         cursor: pointer;
-        transition: border-color 0.15s, background 0.15s;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
       }
       .smart-home-blinds-btn:hover:not(:disabled) {
-        border-color: rgba(56, 189, 248, 0.55);
-        background: rgba(56, 189, 248, 0.12);
+        border-color: rgba(255, 255, 255, 0.9);
+        background: rgba(255, 255, 255, 0.14);
+        color: #fff;
+      }
+      .smart-home-blinds-btn:active:not(:disabled) {
+        background: rgba(255, 255, 255, 0.22);
       }
       .smart-home-blinds-btn:disabled {
-        opacity: 0.45;
+        opacity: 0.4;
         cursor: not-allowed;
-      }
-      .smart-home-blinds-btn--primary {
-        border-color: rgba(56, 189, 248, 0.55);
-        color: var(--accent);
       }
 
       /* ---------- music (Spotify) ---------- */
@@ -3498,7 +3500,7 @@
               <div class="smart-home-row__name">${escapeHtml(d.name)}</div>
               <div class="smart-home-row__controls smart-home-blinds-actions">
                 <button type="button" class="smart-home-blinds-btn" data-blinds-action="close" aria-label="Close blinds">Close</button>
-                <button type="button" class="smart-home-blinds-btn smart-home-blinds-btn--primary" data-blinds-action="open" aria-label="Open blinds">Open</button>
+                <button type="button" class="smart-home-blinds-btn" data-blinds-action="open" aria-label="Open blinds">Open</button>
               </div>
             </div>`;
                   }
@@ -3506,7 +3508,7 @@
             <div class="smart-home-row">
               <div class="smart-home-row__name">${escapeHtml(d.name)}</div>
               <div class="smart-home-row__controls">
-                <button type="button" class="smart-home-blinds-btn smart-home-blinds-btn--primary" data-lights-toggle="1" aria-label="Toggle lights">Toggle</button>
+                <button type="button" class="smart-home-blinds-btn" data-lights-toggle="1" aria-label="Toggle lights">Toggle</button>
               </div>
             </div>`;
                 })
