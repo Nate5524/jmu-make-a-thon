@@ -456,6 +456,66 @@
       .music-controls-row.visible {
         display: flex;
       }
+      .music-volume-row {
+        display: none;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+      .music-volume-row.visible {
+        display: flex;
+      }
+      .music-volume-label {
+        flex-shrink: 0;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-dim);
+      }
+      .music-volume-row input[type="range"] {
+        flex: 1;
+        min-width: 0;
+        height: 6px;
+        border-radius: 3px;
+        appearance: none;
+        background: linear-gradient(
+          to right,
+          var(--accent) 0%,
+          var(--accent) var(--music-vol-pct, 70%),
+          rgba(148, 163, 184, 0.25) var(--music-vol-pct, 70%),
+          rgba(148, 163, 184, 0.25) 100%
+        );
+        cursor: pointer;
+      }
+      .music-volume-row input[type="range"]::-webkit-slider-thumb {
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--text);
+        border: 2px solid var(--accent);
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+      }
+      .music-volume-row input[type="range"]::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--text);
+        border: 2px solid var(--accent);
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+      }
+      .music-volume-row input[type="range"]:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .music-volume-value {
+        flex-shrink: 0;
+        font-size: 0.7rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--text-dim);
+        min-width: 2.25rem;
+        text-align: right;
+      }
       .music-icon-btn {
         display: flex;
         align-items: center;
@@ -962,6 +1022,11 @@
             <button type="button" class="music-icon-btn" id="musicNextBtn" title="Next" aria-label="Next track">
               <p class="music-next">⏭</p>
             </button>
+          </div>
+          <div class="music-volume-row" id="musicVolumeRow" aria-label="Playback volume">
+            <label class="music-volume-label" for="musicVolumeSlider">Vol</label>
+            <input type="range" id="musicVolumeSlider" min="0" max="100" value="85" disabled />
+            <span class="music-volume-value" id="musicVolumeValue">—</span>
           </div>
           <button type="button" class="music-web-btn" id="musicWebPlayerBtn">Play in this browser</button>
           <p class="music-web-status" id="musicWebStatus"></p>
@@ -1875,6 +1940,8 @@
       let spotifyWebPlayer = null;
       let spotifyWebConnecting = false;
       let spotifySearchTimer = null;
+      let musicVolumeDragging = false;
+      let musicVolumeSendTimer = null;
 
       function spotifyDevQuery() {
         return spotifyWebDeviceId ? "?device_id=" + encodeURIComponent(spotifyWebDeviceId) : "";
@@ -1890,6 +1957,81 @@
         pauseIc.style.display = isPlaying ? "block" : "none";
       }
 
+      function updateMusicVolumeFill(percent) {
+        const slider = document.getElementById("musicVolumeSlider");
+        if (!slider) return;
+        const p = Math.max(0, Math.min(100, Number(percent) || 0));
+        slider.style.setProperty("--music-vol-pct", p + "%");
+      }
+
+      function formatVolumeLabel(p) {
+        return String(Math.round(Math.max(0, Math.min(100, Number(p) || 0)))) + "%";
+      }
+
+      function syncMusicVolumeFromPlayer(player) {
+        const slider = document.getElementById("musicVolumeSlider");
+        const valEl = document.getElementById("musicVolumeValue");
+        if (!slider || !valEl) return;
+        if (musicVolumeDragging) return;
+        const dev = player && player.device;
+        if (dev && typeof dev.volume_percent === "number") {
+          slider.disabled = false;
+          slider.value = String(dev.volume_percent);
+          valEl.textContent = formatVolumeLabel(dev.volume_percent);
+          updateMusicVolumeFill(dev.volume_percent);
+          return;
+        }
+        if (player == null) {
+          if (spotifyWebDeviceId) {
+            slider.disabled = false;
+            valEl.textContent = formatVolumeLabel(slider.value);
+            updateMusicVolumeFill(slider.value);
+          } else {
+            slider.disabled = true;
+            valEl.textContent = "—";
+            updateMusicVolumeFill(slider.value);
+          }
+          return;
+        }
+        slider.disabled = false;
+        valEl.textContent = formatVolumeLabel(slider.value);
+        updateMusicVolumeFill(slider.value);
+      }
+
+      async function spotifyPutVolume(percent) {
+        const p = Math.max(0, Math.min(100, Math.round(Number(percent))));
+        const q = new URLSearchParams({ volume_percent: String(p) });
+        if (spotifyWebDeviceId) {
+          q.set("device_id", spotifyWebDeviceId);
+        }
+        if (spotifyWebPlayer && typeof spotifyWebPlayer.setVolume === "function") {
+          try {
+            await spotifyWebPlayer.setVolume(p / 100);
+          } catch (_) {
+            /* SDK may reject before ready; API still applies for active device */
+          }
+        }
+        const r = await fetch("./api/spotify/player/volume?" + q.toString(), { method: "PUT" });
+        if (r.status !== 204 && !r.ok) {
+          const err = await r.json().catch(() => ({}));
+          setStatus(err.error || "Spotify volume failed");
+        }
+      }
+
+      function scheduleSpotifyVolume(percent) {
+        clearTimeout(musicVolumeSendTimer);
+        musicVolumeSendTimer = setTimeout(() => spotifyPutVolume(percent), 120);
+      }
+
+      function applyMusicVolumeUiFromSlider() {
+        const slider = document.getElementById("musicVolumeSlider");
+        const valEl = document.getElementById("musicVolumeValue");
+        if (!slider || !valEl) return;
+        const v = Number(slider.value);
+        valEl.textContent = formatVolumeLabel(v);
+        updateMusicVolumeFill(v);
+      }
+
       function renderSpotifyUnavailable() {
         spotifyConfigured = false;
         spotifyContextHint = "Spotify: not configured on the server.";
@@ -1898,7 +2040,11 @@
         const web = document.getElementById("musicWebPlayerBtn");
         const ws = document.getElementById("musicWebStatus");
         const wrap = document.querySelector("#musicCard .music-search-wrap");
+        const volRow = document.getElementById("musicVolumeRow");
+        const volSlider = document.getElementById("musicVolumeSlider");
         if (ctrl) ctrl.classList.remove("visible");
+        if (volRow) volRow.classList.remove("visible");
+        if (volSlider) volSlider.disabled = true;
         if (web) web.style.display = "none";
         if (ws) ws.textContent = "";
         if (wrap) wrap.style.display = "none";
@@ -1914,9 +2060,11 @@
         const ctrl = document.getElementById("musicControls");
         const web = document.getElementById("musicWebPlayerBtn");
         const wrap = document.querySelector("#musicCard .music-search-wrap");
+        const volRow = document.getElementById("musicVolumeRow");
         if (!el || !ctrl) return;
         spotifyConfigured = true;
         ctrl.classList.add("visible");
+        if (volRow) volRow.classList.add("visible");
         if (web) web.style.display = spotifyWebPlayer ? "none" : "";
         if (wrap) wrap.style.display = "";
 
@@ -1924,6 +2072,7 @@
           el.innerHTML = '<span class="no-items">Nothing playing</span><p class="music-hint">Search for a track below or start playback on your Spotify account.</p>';
           updatePlayPauseIcon(false);
           spotifyContextHint = "Spotify: nothing playing (open Spotify on a device or use search below).";
+          syncMusicVolumeFromPlayer(player);
           return;
         }
 
@@ -1937,6 +2086,7 @@
         const artHtml = imgUrl ? `<img class="music-art" src="${escapeHtml(imgUrl)}" width="56" height="56" alt="" crossorigin="anonymous" />` : '<div class="music-art music-art--placeholder" aria-hidden="true"></div>';
         el.innerHTML = '<div class="music-now">' + artHtml + '<div class="music-meta"><div class="music-title">' + escapeHtml(track.name) + '</div><div class="music-artist">' + escapeHtml(artists) + "</div></div></div>";
         updatePlayPauseIcon(!!player.is_playing);
+        syncMusicVolumeFromPlayer(player);
       }
 
       async function fetchSpotifyPlayer() {
@@ -2372,6 +2522,27 @@
         if (action === "queue") spotifyQueueUri(uri);
         else spotifyPlayUri(uri);
       });
+      (function bindMusicVolumeSlider() {
+        const slider = document.getElementById("musicVolumeSlider");
+        if (!slider) return;
+        const endDrag = () => {
+          musicVolumeDragging = false;
+        };
+        slider.addEventListener("pointerdown", () => {
+          musicVolumeDragging = true;
+        });
+        document.addEventListener("pointerup", endDrag);
+        document.addEventListener("pointercancel", endDrag);
+        slider.addEventListener("input", (e) => {
+          applyMusicVolumeUiFromSlider();
+          scheduleSpotifyVolume(Number(e.target.value));
+        });
+        slider.addEventListener("change", (e) => {
+          clearTimeout(musicVolumeSendTimer);
+          applyMusicVolumeUiFromSlider();
+          spotifyPutVolume(Number(e.target.value));
+        });
+      })();
 
       micBtn.addEventListener("mousedown", () => {
         if (!isRecording) startRecording();
