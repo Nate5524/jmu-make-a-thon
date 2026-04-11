@@ -55,7 +55,7 @@
         font-size: 1.25rem;
         font-weight: 700;
         letter-spacing: 0.12em;
-        color: var(--accent);
+        color: var(--text);
         text-transform: uppercase;
       }
 
@@ -64,10 +64,6 @@
         font-weight: 400;
         font-size: 0.8rem;
         letter-spacing: 0.05em;
-      }
-      a.logo {
-        text-decoration: none;
-        color: inherit;
       }
 
       .header-actions {
@@ -99,6 +95,48 @@
       a.btn {
         text-decoration: none;
         color: inherit;
+      }
+
+      .about-dialog {
+        padding: 0;
+        border: none;
+        background: transparent;
+        width: min(420px, calc(100vw - 2rem));
+        max-width: min(420px, calc(100vw - 2rem));
+        z-index: 220;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        margin: 0;
+      }
+      .about-dialog::backdrop {
+        background: rgba(0, 0, 0, 0.55);
+      }
+      .about-dialog__panel {
+        padding: 1.25rem 1.35rem;
+        background: var(--surface);
+        border: 1px solid var(--accent-dim);
+        border-radius: var(--radius);
+        box-shadow: var(--glow);
+      }
+      .about-dialog__title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--accent);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        margin-bottom: 0.75rem;
+      }
+      .about-dialog__body {
+        font-size: 0.9rem;
+        line-height: 1.55;
+        color: var(--text);
+        margin-bottom: 1.1rem;
+      }
+      .about-dialog__close {
+        width: 100%;
+        justify-content: center;
       }
 
       .layout {
@@ -1157,7 +1195,10 @@
       .sidebar-toggle { display: flex; }
       .sidebar-close { display: flex; }
       .logo { flex: 1; text-align: center; }
-      .header-actions { width: 36px; }
+      .header-actions {
+        width: auto;
+        flex-shrink: 0;
+      }
       .layout { grid-template-columns: 1fr; }
       .sidebar {
         position: fixed;
@@ -1269,10 +1310,31 @@
   <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
   </button>
-  <a class="logo" href="./index.html">PowerSleep</a>
+  <span class="logo">PowerSleep</span>
   <div class="header-actions">
+    <button
+      type="button"
+      class="btn"
+      id="aboutOpenBtn"
+      aria-haspopup="dialog"
+      aria-controls="aboutDialog"
+    >
+      About Us
+    </button>
   </div>
 </header>
+
+<dialog id="aboutDialog" class="about-dialog" aria-labelledby="aboutDialogTitle">
+  <div class="about-dialog__panel">
+    <h2 id="aboutDialogTitle" class="about-dialog__title">About us</h2>
+    <p class="about-dialog__body">
+      We are Team PowerSleep, building Jarvis for the JMU Make-a-Thon: a voice-first assistant that
+      ties together your calendar, smart home demo, and daily context so you can plan your day
+      without digging through apps.
+    </p>
+    <button type="button" class="btn about-dialog__close" id="aboutCloseBtn">Close</button>
+  </div>
+</dialog>
 
     <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
@@ -3427,6 +3489,16 @@
       }
       backdropEl.addEventListener("click", closeSidebar);
       document.getElementById("sidebarClose").addEventListener("click", closeSidebar);
+
+      // ─── About dialog ─────────────────────────────────────────────────────────────
+      const aboutDialog = document.getElementById("aboutDialog");
+      const aboutOpenBtn = document.getElementById("aboutOpenBtn");
+      const aboutCloseBtn = document.getElementById("aboutCloseBtn");
+      aboutOpenBtn.addEventListener("click", () => aboutDialog.showModal());
+      aboutCloseBtn.addEventListener("click", () => aboutDialog.close());
+      aboutDialog.addEventListener("click", (e) => {
+        if (e.target === aboutDialog) aboutDialog.close();
+      });
 
       // ─── Init ─────────────────────────────────────────────────────────────────────
       window.addEventListener("load", () => {
