@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>J.A.R.V.I.S.</title>
+  <script src="https://js.puter.com/v2/"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
+  <script src="https://apis.google.com/js/api.js" async defer onload="gapiLoaded()"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0e17;
+      --surface: #111827;
+      --surface-2: #1a2236;
+      --accent: #38bdf8;
+      --accent-dim: #1e3a5f;
+      --text: #e2e8f0;
+      --text-dim: #94a3b8;
+      --danger: #f87171;
+      --success: #4ade80;
+      --radius: 12px;
+      --glow: 0 0 20px rgba(56, 189, 248, .15);
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .75rem 1.25rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--accent-dim);
+    }
+
+    .logo {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+
+    .logo span { color: var(--text-dim); font-weight: 400; font-size: .8rem; letter-spacing: .05em; }
+
+    .header-actions { display: flex; gap: .5rem; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .45rem .9rem;
+      border: 1px solid var(--accent-dim);
+      border-radius: var(--radius);
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: .8rem;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn:hover { border-color: var(--accent); box-shadow: var(--glow); }
+    .btn.connected { border-color: var(--success); color: var(--success); }
+
+    .layout {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      grid-template-rows: 1fr auto;
+      gap: 0;
+      min-height: 0;
+    }
+
+    /* ---------- sidebar ---------- */
+    .sidebar {
+      grid-row: 1 / 3;
+      background: var(--surface);
+      border-right: 1px solid var(--accent-dim);
+      padding: 1rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .card {
+      background: var(--surface-2);
+      border: 1px solid var(--accent-dim);
+      border-radius: var(--radius);
+      padding: .85rem;
+    }
+    .card h3 {
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--accent);
+      margin-bottom: .6rem;
+    }
+
+    .weather-now {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+    .weather-temp {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .weather-desc { font-size: .85rem; color: var(--text-dim); }
+    .weather-details { font-size: .75rem; color: var(--text-dim); margin-top: .5rem; }
+
+    .event-list { list-style: none; display: flex; flex-direction: column; gap: .45rem; }
+    .event-list li {
+      font-size: .8rem;
+      padding: .4rem .55rem;
+      background: rgba(56,189,248,.06);
+      border-left: 3px solid var(--accent);
+      border-radius: 4px;
+    }
+    .event-time { color: var(--accent); font-weight: 600; font-size: .7rem; }
+    .event-summary { color: var(--text); }
+    .no-items { color: var(--text-dim); font-size: .8rem; font-style: italic; }
+
+    /* ---------- chat ---------- */
+    .chat {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: .75rem;
+    }
+
+    .msg {
+      max-width: 75%;
+      padding: .65rem 1rem;
+      border-radius: var(--radius);
+      font-size: .9rem;
+      line-height: 1.5;
+      animation: fadeIn .25s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .msg.user {
+      align-self: flex-end;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      color: var(--text);
+    }
+    .msg.assistant {
+      align-self: flex-start;
+      background: var(--surface-2);
+      border: 1px solid var(--accent-dim);
+    }
+    .msg .label {
+      font-size: .65rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--accent);
+      margin-bottom: .2rem;
+    }
+
+    /* ---------- input bar ---------- */
+    .input-bar {
+      display: flex;
+      align-items: center;
+      gap: .65rem;
+      padding: .75rem 1.25rem;
+      background: var(--surface);
+      border-top: 1px solid var(--accent-dim);
+    }
+
+    .input-bar input {
+      flex: 1;
+      padding: .55rem .85rem;
+      border: 1px solid var(--accent-dim);
+      border-radius: var(--radius);
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: .9rem;
+      outline: none;
+      transition: border .2s;
+    }
+    .input-bar input:focus { border-color: var(--accent); }
+
+    .mic-btn {
+      width: 46px; height: 46px;
+      border-radius: 50%;
+      border: 2px solid var(--accent-dim);
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .2s;
+      position: relative;
+    }
+    .mic-btn:hover { border-color: var(--accent); box-shadow: var(--glow); }
+    .mic-btn.recording {
+      border-color: var(--danger);
+      background: rgba(248, 113, 113, .15);
+      animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,.4); }
+      50% { box-shadow: 0 0 0 10px rgba(248,113,113,0); }
+    }
+
+    .send-btn {
+      width: 46px; height: 46px;
+      border-radius: 50%;
+      border: 2px solid var(--accent-dim);
+      background: var(--surface-2);
+      color: var(--accent);
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .2s;
+    }
+    .send-btn:hover { border-color: var(--accent); background: var(--accent-dim); }
+
+    .status-bar {
+      font-size: .7rem;
+      color: var(--text-dim);
+      padding: .25rem 1.25rem;
+      background: var(--surface);
+      text-align: center;
+    }
+
+    /* responsive */
+    @media (max-width: 700px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { grid-row: auto; border-right: none; border-bottom: 1px solid var(--accent-dim); max-height: 35vh; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">J.A.R.V.I.S. <span>— Just A Rather Very Intelligent System</span></div>
+  <div class="header-actions">
+    <button class="btn" id="btnGoogleAuth" onclick="handleGoogleAuth()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Connect Google Calendar
+    </button>
+    <button class="btn" id="btnPuterAuth" onclick="handlePuterAuth()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      Sign in to Puter
+    </button>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- Sidebar: weather + calendar -->
+  <aside class="sidebar">
+    <div class="card" id="weatherCard">
+      <h3>Weather</h3>
+      <div id="weatherContent"><span class="no-items">Loading weather...</span></div>
+    </div>
+    <div class="card" id="calendarCard">
+      <h3>Today's Schedule</h3>
+      <div id="calendarContent"><span class="no-items">Connect Google Calendar to see events</span></div>
+    </div>
+  </aside>
+
+  <!-- Chat area -->
+  <section class="chat">
+    <div class="messages" id="messages">
+      <div class="msg assistant">
+        <div class="label">Jarvis</div>
+        Good evening. I'm Jarvis, your personal assistant. How may I help you today? You can type below or press the microphone to speak.
+      </div>
+    </div>
+    <div class="status-bar" id="status">Ready</div>
+    <div class="input-bar">
+      <input type="text" id="textInput" placeholder="Type a message..." autocomplete="off" />
+      <button class="mic-btn" id="micBtn" title="Hold or click to record">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="1" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
+      </button>
+      <button class="send-btn" id="sendBtn" title="Send message" onclick="sendTextMessage()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </section>
+</div>
+
+<script>
+// ─── Config ───────────────────────────────────────────────────────────────────
+//
+// SETUP (for hackathon demo):
+//
+// 1) PUTER: Click "Sign in to Puter" in the header. This enables TTS, STT,
+//    and LLM. Works out-of-the-box — no keys needed. Create an account at
+//    puter.com if you don't have one (free).
+//
+// 2) GOOGLE CALENDAR (optional — app works without it):
+//    a) Go to console.cloud.google.com → create/select a project
+//    b) Enable "Google Calendar API"
+//    c) Go to "Credentials" → Create OAuth 2.0 Client ID (Web application)
+//       - Authorized JavaScript origins: http://localhost:5173
+//    d) Also create an API Key (restrict to Calendar API)
+//    e) Paste both below
+//
+// 3) WEATHER: Automatic via Open-Meteo. Falls back to Harrisonburg VA if
+//    geolocation is denied.
+//
+// 4) SERVING: `npm run dev` then visit http://localhost:5173/jarvis.html
+//
+const GOOGLE_CLIENT_ID = '';  // e.g. '123456.apps.googleusercontent.com'
+const GOOGLE_API_KEY    = '';  // e.g. 'AIza...'
+const CALENDAR_SCOPES   = 'https://www.googleapis.com/auth/calendar.readonly';
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let conversationHistory = [];
+let calendarEvents = [];
+let weatherData = null;
+let isRecording = false;
+let mediaRecorder = null;
+let audioChunks = [];
+let googleTokenClient = null;
+let gapiInited = false;
+let gisInited = false;
+
+const messagesEl = document.getElementById('messages');
+const statusEl   = document.getElementById('status');
+const textInput  = document.getElementById('textInput');
+const micBtn     = document.getElementById('micBtn');
+
+// ─── Puter Auth ───────────────────────────────────────────────────────────────
+async function handlePuterAuth() {
+  try {
+    setStatus('Signing in to Puter...');
+    await puter.auth.signIn();
+    document.getElementById('btnPuterAuth').classList.add('connected');
+    document.getElementById('btnPuterAuth').innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+      Puter Connected`;
+    setStatus('Puter connected');
+  } catch (e) {
+    setStatus('Puter sign-in failed: ' + e.message);
+  }
+}
+
+// ─── Google Calendar ──────────────────────────────────────────────────────────
+function gapiLoaded() {
+  gapi.load('client', async () => {
+    if (!GOOGLE_API_KEY) return;
+    await gapi.client.init({ apiKey: GOOGLE_API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] });
+    gapiInited = true;
+    maybeEnableGoogleBtn();
+  });
+}
+
+function gisLoaded() {
+  if (!GOOGLE_CLIENT_ID) return;
+  googleTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: CALENDAR_SCOPES,
+    callback: onGoogleToken,
+  });
+  gisInited = true;
+  maybeEnableGoogleBtn();
+}
+
+function maybeEnableGoogleBtn() {}
+
+function handleGoogleAuth() {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_API_KEY) {
+    alert('Google Calendar credentials not configured.\n\nTo enable:\n1. Go to console.cloud.google.com\n2. Enable Calendar API\n3. Create OAuth 2.0 Client ID + API Key\n4. Paste them into the GOOGLE_CLIENT_ID and GOOGLE_API_KEY constants in jarvis.html');
+    return;
+  }
+  if (!gisInited) { alert('Google Identity Services not loaded yet.'); return; }
+  googleTokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+async function onGoogleToken(tokenResponse) {
+  if (tokenResponse.error) { setStatus('Google auth error'); return; }
+  document.getElementById('btnGoogleAuth').classList.add('connected');
+  document.getElementById('btnGoogleAuth').innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+    Calendar Connected`;
+  await fetchCalendarEvents();
+}
+
+async function fetchCalendarEvents() {
+  try {
+    setStatus('Fetching calendar events...');
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const endOfDay   = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+
+    const resp = await gapi.client.calendar.events.list({
+      calendarId: 'primary',
+      timeMin: startOfDay,
+      timeMax: endOfDay,
+      singleEvents: true,
+      orderBy: 'startTime',
+      maxResults: 15,
+    });
+
+    calendarEvents = resp.result.items || [];
+    renderCalendar();
+    setStatus('Calendar loaded — ' + calendarEvents.length + ' events today');
+  } catch (e) {
+    setStatus('Calendar fetch failed');
+    console.error(e);
+  }
+}
+
+function renderCalendar() {
+  const el = document.getElementById('calendarContent');
+  if (!calendarEvents.length) {
+    el.innerHTML = '<span class="no-items">No events today — enjoy your free time!</span>';
+    return;
+  }
+  el.innerHTML = '<ul class="event-list">' + calendarEvents.map(ev => {
+    const start = ev.start.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'All day';
+    return `<li><span class="event-time">${start}</span> <span class="event-summary">${ev.summary || '(No title)'}</span></li>`;
+  }).join('') + '</ul>';
+}
+
+// ─── Weather (Open-Meteo, no API key) ────────────────────────────────────────
+async function fetchWeather() {
+  try {
+    const pos = await new Promise((res, rej) =>
+      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 })
+    );
+    const { latitude, longitude } = pos.coords;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=1&daily=temperature_2m_max,temperature_2m_min`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    weatherData = data;
+    renderWeather(data);
+  } catch (e) {
+    console.warn('Weather fetch failed, trying fallback location', e);
+    await fetchWeatherFallback();
+  }
+}
+
+async function fetchWeatherFallback() {
+  // Fallback: Harrisonburg VA (JMU)
+  const url = 'https://api.open-meteo.com/v1/forecast?latitude=38.45&longitude=-78.87&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=1&daily=temperature_2m_max,temperature_2m_min';
+  try {
+    const resp = await fetch(url);
+    const data = await resp.json();
+    weatherData = data;
+    renderWeather(data);
+  } catch (e) {
+    document.getElementById('weatherContent').innerHTML = '<span class="no-items">Could not load weather</span>';
+  }
+}
+
+function weatherCodeToDescription(code) {
+  const map = {
+    0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+    45: 'Foggy', 48: 'Depositing rime fog',
+    51: 'Light drizzle', 53: 'Moderate drizzle', 55: 'Dense drizzle',
+    61: 'Slight rain', 63: 'Moderate rain', 65: 'Heavy rain',
+    71: 'Slight snow', 73: 'Moderate snow', 75: 'Heavy snow',
+    80: 'Slight rain showers', 81: 'Moderate rain showers', 82: 'Violent rain showers',
+    95: 'Thunderstorm', 96: 'Thunderstorm w/ slight hail', 99: 'Thunderstorm w/ heavy hail',
+  };
+  return map[code] || 'Unknown';
+}
+
+function weatherCodeToEmoji(code) {
+  if (code === 0) return '\u2600\uFE0F';
+  if (code <= 2) return '\u26C5';
+  if (code === 3) return '\u2601\uFE0F';
+  if (code <= 48) return '\uD83C\uDF2B\uFE0F';
+  if (code <= 55) return '\uD83C\uDF26\uFE0F';
+  if (code <= 65) return '\uD83C\uDF27\uFE0F';
+  if (code <= 75) return '\u2744\uFE0F';
+  if (code <= 82) return '\uD83C\uDF27\uFE0F';
+  return '\u26A1';
+}
+
+function renderWeather(data) {
+  const c = data.current;
+  const d = data.daily;
+  document.getElementById('weatherContent').innerHTML = `
+    <div class="weather-now">
+      <div style="font-size:2.2rem">${weatherCodeToEmoji(c.weather_code)}</div>
+      <div>
+        <div class="weather-temp">${Math.round(c.temperature_2m)}\u00B0F</div>
+        <div class="weather-desc">${weatherCodeToDescription(c.weather_code)}</div>
+      </div>
+    </div>
+    <div class="weather-details">
+      Feels like ${Math.round(c.apparent_temperature)}\u00B0F &bull;
+      Humidity ${c.relative_humidity_2m}% &bull;
+      Wind ${Math.round(c.wind_speed_10m)} mph<br>
+      Hi ${Math.round(d.temperature_2m_max[0])}\u00B0 / Lo ${Math.round(d.temperature_2m_min[0])}\u00B0
+    </div>`;
+}
+
+// ─── Context builder for LLM ─────────────────────────────────────────────────
+function buildContextString() {
+  const parts = [];
+  const now = new Date();
+  parts.push(`Current date/time: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+
+  if (weatherData) {
+    const c = weatherData.current;
+    const d = weatherData.daily;
+    parts.push(`Weather: ${weatherCodeToDescription(c.weather_code)}, ${Math.round(c.temperature_2m)}\u00B0F (feels like ${Math.round(c.apparent_temperature)}\u00B0F). Humidity ${c.relative_humidity_2m}%, wind ${Math.round(c.wind_speed_10m)} mph. High ${Math.round(d.temperature_2m_max[0])}\u00B0F, Low ${Math.round(d.temperature_2m_min[0])}\u00B0F.`);
+  }
+
+  if (calendarEvents.length) {
+    const evStr = calendarEvents.map(ev => {
+      const start = ev.start.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'All day';
+      const end = ev.end.dateTime ? new Date(ev.end.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      return `- ${start}${end ? ' to ' + end : ''}: ${ev.summary || '(No title)'}`;
+    }).join('\n');
+    parts.push(`Today's calendar events:\n${evStr}`);
+  } else {
+    parts.push('Calendar: No events today (or calendar not connected).');
+  }
+
+  return parts.join('\n\n');
+}
+
+const SYSTEM_PROMPT = `You are J.A.R.V.I.S., a highly capable, witty, and professional AI assistant inspired by Tony Stark's personal AI from the Iron Man films. You are concise, helpful, and occasionally dry-humored. When the user asks about their schedule, weather, or time, use ONLY the factual context provided below — do not make up events or weather. For all other topics, respond helpfully with your general knowledge. Keep responses to 2-3 sentences unless the user asks for detail.`;
+
+// ─── Chat / LLM ───────────────────────────────────────────────────────────────
+async function sendToJarvis(userText) {
+  addMessage('user', userText);
+  setStatus('Jarvis is thinking...');
+
+  const contextBlock = buildContextString();
+
+  conversationHistory.push({ role: 'user', content: userText });
+
+  const messages = [
+    { role: 'system', content: SYSTEM_PROMPT + '\n\n--- LIVE CONTEXT ---\n' + contextBlock },
+    ...conversationHistory.slice(-20),  // keep last 20 turns for context window
+  ];
+
+  try {
+    const response = await puter.ai.chat(messages, { model: 'gpt-4o-mini', stream: false });
+    const reply = response.message?.content || response?.toString() || 'I seem to be at a loss for words.';
+
+    conversationHistory.push({ role: 'assistant', content: reply });
+    addMessage('assistant', reply);
+    setStatus('Speaking...');
+    await speakText(reply);
+    setStatus('Ready');
+  } catch (e) {
+    console.error('LLM error:', e);
+    const fallback = "My apologies, I'm having trouble reaching the AI service. Please ensure you're signed in to Puter.";
+    addMessage('assistant', fallback);
+    setStatus('Error — check Puter connection');
+  }
+}
+
+// ─── TTS ──────────────────────────────────────────────────────────────────────
+async function speakText(text) {
+  try {
+    const audio = await puter.ai.txt2speech(text, {
+      voice: 'Matthew',
+      engine: 'neural',
+    });
+    return new Promise(resolve => {
+      audio.onended = resolve;
+      audio.onerror = resolve;
+      audio.play().catch(resolve);
+    });
+  } catch (e) {
+    console.warn('TTS error, falling back to browser speech synthesis:', e);
+    return new Promise(resolve => {
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 1.05;
+      utter.onend = resolve;
+      utter.onerror = resolve;
+      speechSynthesis.speak(utter);
+    });
+  }
+}
+
+// ─── STT (mic recording) ─────────────────────────────────────────────────────
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: getSupportedMime() });
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      if (!audioChunks.length) { setStatus('No audio captured'); return; }
+      const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+      await transcribeAudio(blob);
+    };
+
+    mediaRecorder.start();
+    isRecording = true;
+    micBtn.classList.add('recording');
+    setStatus('Listening...');
+  } catch (e) {
+    console.error('Mic error:', e);
+    setStatus('Microphone access denied');
+  }
+}
+
+function getSupportedMime() {
+  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+  for (const mime of candidates) {
+    if (MediaRecorder.isTypeSupported(mime)) return mime;
+  }
+  return '';
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  isRecording = false;
+  micBtn.classList.remove('recording');
+}
+
+async function transcribeAudio(blob) {
+  setStatus('Transcribing...');
+  try {
+    const result = await puter.ai.speech2txt(blob);
+    const text = (typeof result === 'string' ? result : result?.text || '').trim();
+    if (text) {
+      await sendToJarvis(text);
+    } else {
+      setStatus("I didn't catch that. Try again?");
+    }
+  } catch (e) {
+    console.error('STT error:', e);
+    setStatus('Transcription failed — check Puter connection');
+  }
+}
+
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+function addMessage(role, text) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = `<div class="label">${role === 'user' ? 'You' : 'Jarvis'}</div>${escapeHtml(text)}`;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function setStatus(msg) {
+  statusEl.textContent = msg;
+}
+
+// ─── Event listeners ──────────────────────────────────────────────────────────
+micBtn.addEventListener('mousedown', () => { if (!isRecording) startRecording(); });
+micBtn.addEventListener('mouseup', () => { if (isRecording) stopRecording(); });
+micBtn.addEventListener('mouseleave', () => { if (isRecording) stopRecording(); });
+
+micBtn.addEventListener('touchstart', (e) => { e.preventDefault(); if (!isRecording) startRecording(); });
+micBtn.addEventListener('touchend', (e) => { e.preventDefault(); if (isRecording) stopRecording(); });
+
+micBtn.addEventListener('click', (e) => {
+  // Toggle fallback for click-style usage (not just hold)
+});
+
+textInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendTextMessage();
+  }
+});
+
+function sendTextMessage() {
+  const text = textInput.value.trim();
+  if (!text) return;
+  textInput.value = '';
+  sendToJarvis(text);
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  fetchWeather();
+});
+</script>
+
+</body>
+</html>
