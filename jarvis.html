@@ -678,7 +678,7 @@
           <p class="music-next">⏭</p>
         </button>
       </div>
-      <button type="button" class="music-web-btn" id="musicWebPlayerBtn">Play in this browser (Premium)</button>
+      <button type="button" class="music-web-btn" id="musicWebPlayerBtn">Play in this browser</button>
       <p class="music-web-status" id="musicWebStatus"></p>
       <div class="music-search-wrap">
         <input type="search" id="musicSearchInput" placeholder="Search tracks…" autocomplete="off" />
@@ -1553,7 +1553,7 @@ function renderSpotifyPlayer(player) {
   if (!el || !ctrl) return;
   spotifyConfigured = true;
   ctrl.classList.add('visible');
-  if (web) web.style.display = '';
+  if (web) web.style.display = spotifyWebPlayer ? 'none' : '';
   if (wrap) wrap.style.display = '';
 
   if (!player || !player.item) {
@@ -1696,6 +1696,7 @@ async function initSpotifyWebPlayer() {
   if (!statusEl || !btn) return;
   if (spotifyWebPlayer) {
     statusEl.textContent = 'Browser player already active.';
+    btn.style.display = 'none';
     return;
   }
   if (spotifyWebConnecting) return;
@@ -1734,6 +1735,7 @@ async function initSpotifyWebPlayer() {
     });
     player.addListener('ready', async ({ device_id }) => {
       spotifyWebDeviceId = device_id;
+      btn.style.display = 'none';
       statusEl.textContent = 'Playing in this tab — pick a track or press play.';
       await fetch('./api/spotify/player/transfer', {
         method: 'PUT',
