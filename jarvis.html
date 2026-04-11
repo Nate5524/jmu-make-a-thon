@@ -2860,7 +2860,8 @@
               try {
                 // const result = await puter.ai.speech2txt(blob, { model: "whisper-1" });
                 const result = await puter.ai.speech2txt(blob, {
-                  language: 'en-US' // Hint that the audio is in Spanish
+                  model: 'gpt-4o-transcribe',
+                  language: 'en'
                 });
                 const text = (typeof result === "string" ? result : result?.text || "").trim();
                 if (text) {
