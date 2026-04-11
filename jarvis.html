@@ -132,19 +132,86 @@
     .event-summary { color: var(--text); }
     .no-items { color: var(--text-dim); font-size: .8rem; font-style: italic; }
 
-    .device-row {
+    .smart-home-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      column-gap: .75rem;
+      row-gap: .45rem;
+      align-items: center;
+    }
+    .smart-home-row__name {
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .smart-home-row__controls {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      font-size: .8rem;
-      padding: .35rem 0;
-      border-bottom: 1px solid rgba(30,58,95,.5);
+      gap: .65rem;
+      justify-self: end;
     }
-    .device-row:last-child { border-bottom: none; }
-    .device-name { color: var(--text); }
-    .device-state { font-weight: 600; font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
-    .device-state.on { color: var(--success); }
-    .device-state.off { color: var(--text-dim); }
+    .smart-home-end-label {
+      font-size: .75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-dim);
+      line-height: 1;
+      user-select: none;
+    }
+    .smart-home-end-label--left {
+      width: 2.6rem;
+      text-align: right;
+    }
+    .smart-home-end-label--right {
+      width: 1.4rem;
+      text-align: left;
+    }
+    .smart-home-toggle {
+      position: relative;
+      width: 2.4rem;
+      height: .95rem;
+      flex-shrink: 0;
+      cursor: pointer;
+      border: none;
+      padding: 0;
+      background: none;
+    }
+    .smart-home-toggle input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .smart-home-toggle__track {
+      position: absolute;
+      inset: 0;
+      border-radius: .475rem;
+      background: rgba(148,163,184,.25);
+      border: 1.5px solid rgba(148,163,184,.35);
+      transition: background .2s, border-color .2s;
+    }
+    .smart-home-toggle__thumb {
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      width: calc(.95rem - 2px);
+      height: calc(.95rem - 2px);
+      border-radius: 50%;
+      background: #94a3b8;
+      box-shadow: 0 1px 2px rgba(0,0,0,.4);
+      transition: transform .2s, background .2s;
+    }
+    .smart-home-toggle input:checked ~ .smart-home-toggle__track {
+      background: rgba(56,189,248,.2);
+      border-color: rgba(56,189,248,.6);
+    }
+    .smart-home-toggle input:checked ~ .smart-home-toggle__thumb {
+      transform: translateX(calc(2.4rem - .95rem));
+      background: var(--accent);
+      box-shadow: 0 1px 2px rgba(0,0,0,.4);
+    }
 
     /* ---------- chat ---------- */
     .chat {
@@ -275,14 +342,9 @@
 <header>
   <a class="logo" href="./index.html">PowerSleep</a>
   <div class="header-actions">
-    <a class="btn" href="./admin.html" title="Shared demo state for judges">Demo controls</a>
     <button class="btn" id="btnGoogleAuth" onclick="handleGoogleAuth()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Connect Google Calendar
-    </button>
-    <button class="btn" id="btnPuterAuth" onclick="handlePuterAuth()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-      Sign in to Puter
     </button>
   </div>
 </header>
@@ -330,9 +392,8 @@
 //
 // SETUP (for hackathon demo):
 //
-// 1) PUTER: Click "Sign in to Puter" in the header. This enables TTS, STT,
-//    and LLM. Works out-of-the-box — no keys needed. Create an account at
-//    puter.com if you don't have one (free).
+// 1) PUTER: TTS, STT, and LLM use Puter.js — auth may appear automatically on
+//    first use (no header button). puter.com account if prompted.
 //
 // 2) GOOGLE CALENDAR (optional — app works without it):
 //    a) Go to console.cloud.google.com → create/select a project
@@ -347,9 +408,9 @@
 // 3) WEATHER: Automatic via Open-Meteo. Falls back to Harrisonburg VA if
 //    geolocation is denied.
 //
-// 4) DEMO STATE: Run `npm run dev`, open /jarvis.html. Shared feed + smart home
-//    toggles are loaded from GET /api/state (see server.mjs). Judges edit via
-//    /admin.html with ADMIN_SECRET. Two browsers on the same server share state.
+// 4) DEMO STATE: Run `npm run dev`, open ./jarvis.html. Shared state from
+//    GET ./api/state (see server.mjs). Smart home: POST ./api/smart-home/set
+//    with { id, on } or POST ./api/smart-home/toggle to flip.
 //
 const GOOGLE_CLIENT_ID = '';  // e.g. '123456.apps.googleusercontent.com'
 const GOOGLE_API_KEY    = '';  // e.g. 'AIza...'
@@ -366,31 +427,48 @@ let googleTokenClient = null;
 let gapiInited = false;
 let gisInited = false;
 
-/** Injected from shared server state (GET /api/state); merged into system prompt / context. */
+/** Injected from shared server state (GET ./api/state); merged into system prompt / context. */
 let remotePersonality = '';
 /** @type {{ devices: Array<{ id: string, name: string, on: boolean }> }} */
 let remoteSmartHome = { devices: [] };
 let lastDemoRevision = -1;
+/** While true, skip GET ./api/state polls so optimistic smart-home UI is not overwritten before POST finishes. */
+let smartHomeMutationPending = false;
+
+/** Always Blinds + Ambient lights; map legacy `desk` → blinds position (Up/Down). */
+function normalizeSmartHomeClient(rawDevices) {
+  if (!Array.isArray(rawDevices) || rawDevices.length === 0) {
+    return {
+      devices: [
+        { id: "blinds", name: "Blinds", on: false },
+        { id: "ambient", name: "Ambient lights", on: true },
+      ],
+    };
+  }
+  const map = new Map();
+  for (const d of rawDevices) {
+    if (d && d.id) map.set(String(d.id).toLowerCase(), d);
+  }
+  const desk = map.get("desk");
+  const blinds = map.get("blinds");
+  const ambient = map.get("ambient");
+  let blindsOn = false;
+  if (blinds) blindsOn = !!blinds.on;
+  else if (desk) blindsOn = !!desk.on;
+  let ambientOn = true;
+  if (ambient) ambientOn = !!ambient.on;
+  return {
+    devices: [
+      { id: "blinds", name: "Blinds", on: blindsOn },
+      { id: "ambient", name: "Ambient lights", on: ambientOn },
+    ],
+  };
+}
 
 const messagesEl = document.getElementById('messages');
 const statusEl   = document.getElementById('status');
 const textInput  = document.getElementById('textInput');
 const micBtn     = document.getElementById('micBtn');
-
-// ─── Puter Auth ───────────────────────────────────────────────────────────────
-async function handlePuterAuth() {
-  try {
-    setStatus('Signing in to Puter...');
-    await puter.auth.signIn();
-    document.getElementById('btnPuterAuth').classList.add('connected');
-    document.getElementById('btnPuterAuth').innerHTML = `
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
-      Puter Connected`;
-    setStatus('Puter connected');
-  } catch (e) {
-    setStatus('Puter sign-in failed: ' + e.message);
-  }
-}
 
 // ─── Google Calendar ──────────────────────────────────────────────────────────
 function gapiLoaded() {
@@ -569,7 +647,10 @@ function buildContextString() {
   }
 
   if (remoteSmartHome.devices && remoteSmartHome.devices.length) {
-    const lines = remoteSmartHome.devices.map((d) => `- ${d.name}: ${d.on ? 'on' : 'off'}`);
+    const lines = remoteSmartHome.devices.map((d) => {
+      if (isBlindsDevice(d)) return `- ${d.name}: ${d.on ? 'up' : 'down'}`;
+      return `- ${d.name}: ${d.on ? 'on' : 'off'}`;
+    });
     parts.push(`Smart home (demo):\n${lines.join('\n')}`);
   }
 
@@ -579,7 +660,7 @@ function buildContextString() {
 const SYSTEM_PROMPT = `You are J.A.R.V.I.S., a highly capable, witty, and professional AI assistant inspired by Tony Stark's personal AI from the Iron Man films. You are concise, helpful, and occasionally dry-humored. When the user asks about their schedule, weather, or time, use ONLY the factual context provided below — do not make up events or weather. For all other topics, respond helpfully with your general knowledge. Keep responses to 2-3 sentences unless the user asks for detail.`;
 
 function postChatMessage(role, content) {
-  fetch('/api/chat', {
+  fetch('./api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ role, content }),
@@ -616,10 +697,10 @@ async function sendToJarvis(userText) {
     setStatus('Ready');
   } catch (e) {
     console.error('LLM error:', e);
-    const fallback = "My apologies, I'm having trouble reaching the AI service. Please ensure you're signed in to Puter.";
+    const fallback = "My apologies, I'm having trouble reaching the AI service. Check your network or try again.";
     addMessage('assistant', fallback);
     postChatMessage('assistant', fallback);
-    setStatus('Error — check Puter connection');
+    setStatus('Error — AI unavailable');
   }
 }
 
@@ -703,7 +784,7 @@ async function transcribeAudio(blob) {
     }
   } catch (e) {
     console.error('STT error:', e);
-    setStatus('Transcription failed — check Puter connection');
+    setStatus('Transcription failed — try again');
   }
 }
 
@@ -726,6 +807,12 @@ function setStatus(msg) {
   statusEl.textContent = msg;
 }
 
+function isBlindsDevice(d) {
+  if (!d) return false;
+  if (String(d.id || '').toLowerCase() === 'blinds') return true;
+  return String(d.name || '').trim().toLowerCase() === 'blinds';
+}
+
 function renderSmartHome() {
   const el = document.getElementById('smartHomeContent');
   if (!el) return;
@@ -734,12 +821,25 @@ function renderSmartHome() {
     el.innerHTML = '<span class="no-items">No devices (demo)</span>';
     return;
   }
-  el.innerHTML = devices.map((d) => `
-    <div class="device-row">
-      <span class="device-name">${escapeHtml(d.name)}</span>
-      <span class="device-state ${d.on ? 'on' : 'off'}">${d.on ? 'On' : 'Off'}</span>
-    </div>
-  `).join('');
+  const rows = devices.map((d) => {
+    const v = d.on ? 1 : 0;
+    const idEsc = escapeHtml(d.id);
+    const aria = isBlindsDevice(d) ? 'Blinds' : 'Ambient lights';
+    const leftLabel = isBlindsDevice(d) ? 'Down' : 'Off';
+    const rightLabel = isBlindsDevice(d) ? 'Up' : 'On';
+    return `
+      <div class="smart-home-row__name">${escapeHtml(d.name)}</div>
+      <div class="smart-home-row__controls">
+        <span class="smart-home-end-label smart-home-end-label--left">${leftLabel}</span>
+        <label class="smart-home-toggle">
+          <input type="checkbox" class="smart-home-slider" data-device-id="${idEsc}" ${v ? 'checked' : ''} aria-label="${escapeHtml(aria)}" />
+          <span class="smart-home-toggle__track"></span>
+          <span class="smart-home-toggle__thumb"></span>
+        </label>
+        <span class="smart-home-end-label smart-home-end-label--right">${rightLabel}</span>
+      </div>`;
+  }).join('');
+  el.innerHTML = `<div class="smart-home-grid">${rows}</div>`;
 }
 
 function syncChatFromServer(serverHistory) {
@@ -754,16 +854,22 @@ function syncChatFromServer(serverHistory) {
 }
 
 async function pollDemoState() {
+  if (smartHomeMutationPending) return;
   try {
-    const r = await fetch('/api/state');
+    const r = await fetch('./api/state');
     if (!r.ok) return;
     const data = await r.json();
-    if (data.revision === lastDemoRevision) return;
-    lastDemoRevision = data.revision;
+    const normalized = normalizeSmartHomeClient(data.smartHome?.devices);
+    if (
+      data.revision === lastDemoRevision &&
+      JSON.stringify(normalized) === JSON.stringify(remoteSmartHome)
+    ) {
+      return;
+    }
+    const rev = Number(data.revision);
+    lastDemoRevision = Number.isFinite(rev) ? rev : lastDemoRevision;
     remotePersonality = typeof data.feed?.personality === 'string' ? data.feed.personality : '';
-    remoteSmartHome = data.smartHome && Array.isArray(data.smartHome.devices)
-      ? { devices: data.smartHome.devices }
-      : { devices: [] };
+    remoteSmartHome = normalized;
     renderSmartHome();
     syncChatFromServer(data.chatHistory);
   } catch (e) {
@@ -800,6 +906,55 @@ function sendTextMessage() {
   textInput.value = '';
   sendToJarvis(text);
 }
+
+document.getElementById('smartHomeContent').addEventListener('change', async (e) => {
+  const slider = e.target;
+  if (!slider.classList || !slider.classList.contains('smart-home-slider')) return;
+  const id = slider.dataset.deviceId;
+  if (!id) return;
+  const on = slider.checked;
+  const beforeDevices = remoteSmartHome.devices ? remoteSmartHome.devices.map((d) => ({ ...d })) : [];
+  let commitSucceeded = false;
+  smartHomeMutationPending = true;
+  try {
+    if (beforeDevices.length) {
+      const optimistic = beforeDevices.map((d) =>
+        String(d.id).toLowerCase() === String(id).toLowerCase() ? { ...d, on } : d
+      );
+      remoteSmartHome = normalizeSmartHomeClient(optimistic);
+      renderSmartHome();
+    }
+
+    const r = await fetch('./api/smart-home/set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, on }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      remoteSmartHome = normalizeSmartHomeClient(beforeDevices);
+      renderSmartHome();
+      setStatus(data.error || 'Could not update device');
+      return;
+    }
+    if (data.smartHome && Array.isArray(data.smartHome.devices)) {
+      remoteSmartHome = normalizeSmartHomeClient(data.smartHome.devices);
+    }
+    const rev = Number(data.revision);
+    if (Number.isFinite(rev)) lastDemoRevision = rev;
+    renderSmartHome();
+    commitSucceeded = true;
+  } catch (err) {
+    console.warn('Smart home set failed', err);
+    remoteSmartHome = normalizeSmartHomeClient(beforeDevices);
+    renderSmartHome();
+    setStatus('Update failed — is the app server running?');
+  } finally {
+    smartHomeMutationPending = false;
+  }
+  await pollDemoState();
+  if (commitSucceeded) setStatus('Ready');
+});
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
