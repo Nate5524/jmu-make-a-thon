@@ -1126,6 +1126,127 @@
         display: block;
       }
 
+      /* ---------- sidebar card reorder (toolbar + in-sidebar drag) ---------- */
+      .sidebar-reorder-toolbar {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        z-index: 101;
+        box-sizing: border-box;
+        width: 280px;
+        max-width: none;
+        padding: 0.45rem 0.55rem 0.5rem;
+        padding-left: max(0.55rem, env(safe-area-inset-left, 0px));
+        padding-right: max(0.55rem, env(safe-area-inset-right, 0px));
+        padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+        border-top: 1px solid var(--accent-dim);
+        border-right: 1px solid var(--accent-dim);
+        background: var(--surface);
+        color: var(--text);
+        box-shadow: 0 -6px 28px rgba(0, 0, 0, 0.22);
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+      .sidebar-reorder-toolbar-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.35rem 0.5rem;
+      }
+      .sidebar-reorder-toolbar-row--actions {
+        justify-content: flex-end;
+      }
+      .sidebar-reorder-toolbar-hint {
+        flex: 1 1 100%;
+        font-size: 0.7rem;
+        color: var(--text-dim);
+        line-height: 1.3;
+        margin: 0;
+      }
+      .sidebar-reorder-toolbar button {
+        padding: 0.35rem 0.65rem;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid var(--accent-dim);
+        background: var(--surface-2);
+        color: var(--text);
+        transition: border-color 0.15s, background 0.15s;
+      }
+      #sidebarReorderModeBtn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      #sidebarReorderModeBtn .sidebar-reorder-btn-icon {
+        flex-shrink: 0;
+        opacity: 0.9;
+      }
+      .sidebar-reorder-toolbar button:hover {
+        border-color: var(--accent);
+      }
+      .sidebar-reorder-toolbar .sidebar-reorder-apply {
+        border-color: var(--accent);
+        background: rgba(56, 189, 248, 0.12);
+      }
+
+      .sidebar.is-reordering .card {
+        transition: outline-color 0.15s, box-shadow 0.15s;
+      }
+      .sidebar.is-reordering .card:not(.card--reorder-dragging) {
+        outline: 1px dashed rgba(148, 163, 184, 0.45);
+        outline-offset: 2px;
+      }
+      .card.card--reorder-dragging {
+        opacity: 0.92;
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+      }
+      .sidebar-card-drag-handle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        margin: -0.85rem -0.85rem 0.65rem -0.85rem;
+        padding: 0.45rem 0.5rem;
+        border-radius: var(--radius) var(--radius) 0 0;
+        border-bottom: 1px solid var(--accent-dim);
+        background: rgba(56, 189, 248, 0.1);
+        cursor: grab;
+        font-size: 0.62rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--accent);
+        user-select: none;
+      }
+      .sidebar-card-drag-handle:active {
+        cursor: grabbing;
+      }
+      .sidebar-card-drag-handle svg {
+        flex-shrink: 0;
+        opacity: 0.85;
+      }
+
+    /*
+      Desktop: fixed bottom toolbar overlaps the column — extra scroll padding so the last cards clear it.
+      Idle toolbar is one row; reorder mode adds hint + Cancel/Apply, so allow more scroll slack then.
+    */
+    @media (min-width: 769px) {
+      .sidebar {
+        padding-bottom: calc(3.75rem + env(safe-area-inset-bottom, 0px));
+        scroll-padding-bottom: calc(3.75rem + env(safe-area-inset-bottom, 0px));
+        transition: padding-bottom 0.2s ease, scroll-padding-bottom 0.2s ease;
+      }
+      .sidebar.is-reordering {
+        padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px));
+        scroll-padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px));
+      }
+    }
+
     /* ---------- responsive ---------- */
     @media (max-width: 768px) {
       /* iOS: dvh tracks visible viewport better than vh; avoid 100svh here — it sits the bar too high. */
@@ -1142,13 +1263,24 @@
         position: fixed;
         top: 0;
         left: 0;
-        bottom: 0;
         width: 280px;
+        /* Fill the visible viewport; top+bottom alone can leave a gap with mobile URL chrome / dvh. */
+        height: 100vh;
+        height: 100dvh;
+        min-height: 100vh;
+        min-height: 100dvh;
+        min-height: -webkit-fill-available;
+        max-height: none;
         z-index: 100;
         grid-row: auto;
         border-right: 1px solid var(--accent-dim);
         transform: translateX(-100%);
         transition: transform .25s ease;
+        /* No bottom padding — global 1rem was leaving empty strip below the sticky reorder bar. */
+        padding-bottom: 0;
+        padding-top: 1rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
       }
       .sidebar.open {
         transform: translateX(0);
@@ -1156,6 +1288,77 @@
       /* Slight lift for home indicator / thin bottom inset only — keeps the bar much lower than before. */
       .input-bar {
         padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px) + 10px);
+      }
+      /*
+        Sticky bottom inside the scrolling drawer (not position:fixed — fixed follows the transformed
+        box in a way that can scroll away with content). margin-top:auto keeps it at the bottom when
+        the card list is shorter than the drawer.
+      */
+      .sidebar-reorder-toolbar {
+        position: sticky;
+        bottom: 0;
+        left: auto;
+        right: auto;
+        width: 100%;
+        max-width: none;
+        align-self: stretch;
+        margin-top: auto;
+        flex-shrink: 0;
+        padding-bottom: max(0.45rem, env(safe-area-inset-bottom, 0px));
+        padding-left: max(0.55rem, env(safe-area-inset-left, 0px));
+        padding-right: max(0.55rem, env(safe-area-inset-right, 0px));
+        border-left: none;
+        border-top-right-radius: 0;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.18);
+      }
+
+      .sidebar-card-reorder-mobile {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin: -0.85rem -0.85rem 0.65rem -0.85rem;
+        padding: 0.4rem 0.45rem;
+        border-radius: var(--radius) var(--radius) 0 0;
+        border-bottom: 1px solid var(--accent-dim);
+        background: rgba(56, 189, 248, 0.1);
+      }
+      .sidebar-card-reorder-mobile__label {
+        font-size: 0.62rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--accent);
+      }
+      .sidebar-card-reorder-mobile__btns {
+        display: flex;
+        gap: 0.35rem;
+        flex-shrink: 0;
+      }
+      .sidebar-card-reorder-mobile__btn {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        border: 1px solid var(--accent-dim);
+        background: var(--surface-2);
+        color: var(--text);
+        font-size: 1.1rem;
+        line-height: 1;
+        cursor: pointer;
+        touch-action: manipulation;
+        transition: border-color 0.15s, opacity 0.15s;
+      }
+      .sidebar-card-reorder-mobile__btn:hover:not(:disabled) {
+        border-color: var(--accent);
+      }
+      .sidebar-card-reorder-mobile__btn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
       }
     }
   </style>
@@ -1299,6 +1502,25 @@
             </div>
           </div>
         </div>
+
+        <nav class="sidebar-reorder-toolbar" id="sidebarReorderToolbar" aria-label="Reorder sidebar cards">
+          <div class="sidebar-reorder-toolbar-row sidebar-reorder-toolbar-row--actions" id="sidebarReorderToolbarRow2">
+            <button type="button" id="sidebarReorderModeBtn" title="Reorder sidebar cards">
+              <svg class="sidebar-reorder-btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <line x1="8" y1="6" x2="21" y2="6" />
+                <line x1="8" y1="12" x2="21" y2="12" />
+                <line x1="8" y1="18" x2="21" y2="18" />
+                <line x1="3" y1="6" x2="3.01" y2="6" />
+                <line x1="3" y1="12" x2="3.01" y2="12" />
+                <line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
+              <span>Reorder</span>
+            </button>
+            <p class="sidebar-reorder-toolbar-hint" id="sidebarReorderHint" hidden>Drag each card by the blue strip, then Apply.</p>
+            <button type="button" id="sidebarReorderCancel" hidden>Cancel</button>
+            <button type="button" class="sidebar-reorder-apply" id="sidebarReorderApply" hidden>Apply</button>
+          </div>
+        </nav>
       </aside>
 
       <!-- Chat area -->
@@ -3301,6 +3523,309 @@
     <button onclick="devClearChat()">Clear Chat</button>`;
         document.body.prepend(bar);
       }
+
+      // ─── Sidebar card order (reorder UI + localStorage) ───────────────────────────
+      const SIDEBAR_CARD_ORDER_KEY = "jarvis_sidebar_card_order";
+      const SIDEBAR_CARD_KEYS = ["weather", "music", "calendar", "smartHome", "schedules"];
+      const SIDEBAR_CARD_ID_BY_KEY = {
+        weather: "weatherCard",
+        music: "musicCard",
+        calendar: "calendarCard",
+        smartHome: "smartHomeCard",
+        schedules: "schedulesCard",
+      };
+      const SIDEBAR_CARD_LABEL = {
+        weather: "Weather",
+        music: "Music",
+        calendar: "Calendar",
+        smartHome: "Smart home (demo)",
+        schedules: "Scheduled",
+      };
+
+      function sidebarOrderFromStorage() {
+        try {
+          const raw = localStorage.getItem(SIDEBAR_CARD_ORDER_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed) || parsed.length !== SIDEBAR_CARD_KEYS.length) return null;
+          const set = new Set(parsed);
+          if (set.size !== SIDEBAR_CARD_KEYS.length) return null;
+          for (const k of SIDEBAR_CARD_KEYS) {
+            if (!set.has(k)) return null;
+          }
+          return parsed;
+        } catch {
+          return null;
+        }
+      }
+
+      function getCurrentSidebarCardOrder() {
+        const sidebar = document.querySelector(".sidebar");
+        const out = [];
+        for (const el of sidebar.querySelectorAll(".card")) {
+          const key = Object.keys(SIDEBAR_CARD_ID_BY_KEY).find((k) => SIDEBAR_CARD_ID_BY_KEY[k] === el.id);
+          if (key) out.push(key);
+        }
+        return out.length === SIDEBAR_CARD_KEYS.length ? out : [...SIDEBAR_CARD_KEYS];
+      }
+
+      function applySidebarCardOrder(keys) {
+        const sidebar = document.querySelector(".sidebar");
+        const closeBtn = sidebar.querySelector(".sidebar-close");
+        let insertAfter = closeBtn;
+        for (const key of keys) {
+          const id = SIDEBAR_CARD_ID_BY_KEY[key];
+          if (!id || !insertAfter) continue;
+          const el = document.getElementById(id);
+          if (!el) continue;
+          insertAfter.insertAdjacentElement("afterend", el);
+          insertAfter = el;
+        }
+      }
+
+      function restoreSidebarCardOrderFromStorage() {
+        const order = sidebarOrderFromStorage();
+        if (order) applySidebarCardOrder(order);
+      }
+
+      const sidebarReorderModeBtn = document.getElementById("sidebarReorderModeBtn");
+      const sidebarReorderCancel = document.getElementById("sidebarReorderCancel");
+      const sidebarReorderApply = document.getElementById("sidebarReorderApply");
+      const sidebarReorderHint = document.getElementById("sidebarReorderHint");
+      const HANDLE_SEL = ".sidebar-card-drag-handle";
+      const MOBILE_BAR_SEL = ".sidebar-card-reorder-mobile";
+      const SIDEBAR_REORDER_HINT_DESKTOP = "Drag each card by the blue strip, then Apply.";
+      const SIDEBAR_REORDER_HINT_MOBILE = "Use the arrows on each card to reorder, then Apply.";
+      const GRIP_SVG =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>';
+
+      let sidebarReorderSnapshot = null;
+      let sidebarReorderSig = null;
+
+      function isMobileReorderViewport() {
+        return window.matchMedia("(max-width: 768px)").matches;
+      }
+
+      function findPrevCard(card) {
+        let el = card.previousElementSibling;
+        while (el && !el.classList.contains("card")) el = el.previousElementSibling;
+        return el;
+      }
+
+      function findNextCard(card) {
+        let el = card.nextElementSibling;
+        while (el && !el.classList.contains("card")) el = el.nextElementSibling;
+        return el;
+      }
+
+      function refreshMobileReorderButtons() {
+        const sidebar = document.querySelector(".sidebar");
+        const cards = [...sidebar.querySelectorAll(".card")].filter((c) =>
+          SIDEBAR_CARD_KEYS.some((k) => SIDEBAR_CARD_ID_BY_KEY[k] === c.id),
+        );
+        for (const card of cards) {
+          const bar = card.querySelector(MOBILE_BAR_SEL);
+          if (!bar) continue;
+          const up = bar.querySelector('.sidebar-card-reorder-mobile__btn[data-dir="up"]');
+          const down = bar.querySelector('.sidebar-card-reorder-mobile__btn[data-dir="down"]');
+          if (up) up.disabled = !findPrevCard(card);
+          if (down) down.disabled = !findNextCard(card);
+        }
+      }
+
+      function moveCardUp(card) {
+        const prev = findPrevCard(card);
+        if (!prev) return;
+        prev.insertAdjacentElement("beforebegin", card);
+        refreshMobileReorderButtons();
+      }
+
+      function moveCardDown(card) {
+        const next = findNextCard(card);
+        if (!next) return;
+        next.insertAdjacentElement("afterend", card);
+        refreshMobileReorderButtons();
+      }
+
+      function attachMobileReorderBars() {
+        for (const key of SIDEBAR_CARD_KEYS) {
+          const card = document.getElementById(SIDEBAR_CARD_ID_BY_KEY[key]);
+          if (!card || card.querySelector(MOBILE_BAR_SEL)) continue;
+          const bar = document.createElement("div");
+          bar.className = "sidebar-card-reorder-mobile";
+          bar.innerHTML =
+            '<span class="sidebar-card-reorder-mobile__label"></span>' +
+            '<div class="sidebar-card-reorder-mobile__btns">' +
+            '<button type="button" class="sidebar-card-reorder-mobile__btn" data-dir="up" aria-label="Move up">↑</button>' +
+            '<button type="button" class="sidebar-card-reorder-mobile__btn" data-dir="down" aria-label="Move down">↓</button>' +
+            "</div>";
+          bar.querySelector(".sidebar-card-reorder-mobile__label").textContent = SIDEBAR_CARD_LABEL[key] || key;
+          card.insertBefore(bar, card.firstChild);
+        }
+        refreshMobileReorderButtons();
+      }
+
+      function bindMobileReorderArrowListeners() {
+        sidebarReorderSig = new AbortController();
+        const opts = { signal: sidebarReorderSig.signal };
+        const sidebar = document.querySelector(".sidebar");
+        sidebar.addEventListener(
+          "click",
+          (e) => {
+            const btn = e.target.closest(".sidebar-card-reorder-mobile__btn");
+            if (!btn || !sidebar.classList.contains("is-reordering")) return;
+            const bar = btn.closest(MOBILE_BAR_SEL);
+            const card = bar && bar.closest(".card");
+            if (!card) return;
+            const dir = btn.getAttribute("data-dir");
+            if (dir === "up") moveCardUp(card);
+            else if (dir === "down") moveCardDown(card);
+          },
+          opts,
+        );
+      }
+
+      function onCardDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+      }
+
+      function onCardDrop(e) {
+        e.preventDefault();
+        const id = e.dataTransfer.getData("text/plain");
+        const dragged = document.getElementById(id);
+        const target = e.currentTarget;
+        if (!dragged || !target || dragged === target || !target.classList.contains("card")) return;
+        const rect = target.getBoundingClientRect();
+        const after = e.clientY - rect.top > rect.height / 2;
+        if (after) target.insertAdjacentElement("afterend", dragged);
+        else target.insertAdjacentElement("beforebegin", dragged);
+      }
+
+      function onHandleDragStart(e) {
+        const handle = e.currentTarget;
+        const card = handle.closest(".card");
+        if (!card || !card.id) return;
+        e.dataTransfer.setData("text/plain", card.id);
+        e.dataTransfer.effectAllowed = "move";
+        card.classList.add("card--reorder-dragging");
+      }
+
+      function onHandleDragEnd(e) {
+        const card = e.currentTarget.closest(".card");
+        if (card) card.classList.remove("card--reorder-dragging");
+      }
+
+      function attachCardDragHandles() {
+        for (const key of SIDEBAR_CARD_KEYS) {
+          const card = document.getElementById(SIDEBAR_CARD_ID_BY_KEY[key]);
+          if (!card || card.querySelector(HANDLE_SEL)) continue;
+          const handle = document.createElement("div");
+          handle.className = "sidebar-card-drag-handle";
+          handle.setAttribute("draggable", "true");
+          handle.innerHTML = GRIP_SVG + "<span>" + (SIDEBAR_CARD_LABEL[key] || key) + "</span>";
+          card.insertBefore(handle, card.firstChild);
+        }
+      }
+
+      function removeCardReorderUi() {
+        document.querySelectorAll(HANDLE_SEL).forEach((el) => el.remove());
+        document.querySelectorAll(MOBILE_BAR_SEL).forEach((el) => el.remove());
+      }
+
+      function bindReorderDragListeners() {
+        sidebarReorderSig = new AbortController();
+        const opts = { signal: sidebarReorderSig.signal };
+        for (const key of SIDEBAR_CARD_KEYS) {
+          const card = document.getElementById(SIDEBAR_CARD_ID_BY_KEY[key]);
+          if (!card) continue;
+          const handle = card.querySelector(HANDLE_SEL);
+          if (handle) {
+            handle.addEventListener("dragstart", onHandleDragStart, opts);
+            handle.addEventListener("dragend", onHandleDragEnd, opts);
+          }
+          card.addEventListener("dragover", onCardDragOver, opts);
+          card.addEventListener("drop", onCardDrop, opts);
+        }
+      }
+
+      function unbindReorderDragListeners() {
+        if (sidebarReorderSig) {
+          sidebarReorderSig.abort();
+          sidebarReorderSig = null;
+        }
+      }
+
+      function setReorderToolbarEditing(isEditing) {
+        sidebarReorderModeBtn.hidden = isEditing;
+        sidebarReorderHint.hidden = !isEditing;
+        sidebarReorderCancel.hidden = !isEditing;
+        sidebarReorderApply.hidden = !isEditing;
+      }
+
+      function enterSidebarReorderMode() {
+        const sidebar = document.querySelector(".sidebar");
+        if (sidebar.classList.contains("is-reordering")) return;
+        sidebarReorderSnapshot = getCurrentSidebarCardOrder().slice();
+        sidebar.classList.add("is-reordering");
+        const mobile = isMobileReorderViewport();
+        if (mobile) {
+          sidebarReorderHint.textContent = SIDEBAR_REORDER_HINT_MOBILE;
+          attachMobileReorderBars();
+          bindMobileReorderArrowListeners();
+        } else {
+          sidebarReorderHint.textContent = SIDEBAR_REORDER_HINT_DESKTOP;
+          attachCardDragHandles();
+          bindReorderDragListeners();
+        }
+        setReorderToolbarEditing(true);
+        if (mobile) {
+          sidebar.classList.add("open");
+          const bd = document.getElementById("sidebarBackdrop");
+          if (bd) bd.classList.add("visible");
+        }
+      }
+
+      function exitSidebarReorderMode() {
+        const sidebar = document.querySelector(".sidebar");
+        sidebar.classList.remove("is-reordering");
+        unbindReorderDragListeners();
+        removeCardReorderUi();
+        sidebarReorderHint.textContent = SIDEBAR_REORDER_HINT_DESKTOP;
+        setReorderToolbarEditing(false);
+      }
+
+      function cancelSidebarReorderMode() {
+        if (sidebarReorderSnapshot) applySidebarCardOrder(sidebarReorderSnapshot);
+        sidebarReorderSnapshot = null;
+        exitSidebarReorderMode();
+      }
+
+      function applySidebarReorderMode() {
+        const keys = getCurrentSidebarCardOrder();
+        if (keys.length === SIDEBAR_CARD_KEYS.length) {
+          try {
+            localStorage.setItem(SIDEBAR_CARD_ORDER_KEY, JSON.stringify(keys));
+          } catch (_) {}
+        }
+        sidebarReorderSnapshot = null;
+        exitSidebarReorderMode();
+      }
+
+      sidebarReorderModeBtn.addEventListener("click", () => enterSidebarReorderMode());
+      sidebarReorderCancel.addEventListener("click", () => cancelSidebarReorderMode());
+      sidebarReorderApply.addEventListener("click", () => applySidebarReorderMode());
+      document.getElementById("sidebarBackdrop").addEventListener("click", () => {
+        if (document.querySelector(".sidebar.is-reordering")) cancelSidebarReorderMode();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && document.querySelector(".sidebar.is-reordering")) {
+          e.preventDefault();
+          cancelSidebarReorderMode();
+        }
+      });
+
+      restoreSidebarCardOrderFromStorage();
 
       // ─── Sidebar toggle ──────────────────────────────────────────────────────────
       const sidebarEl = document.querySelector(".sidebar");
