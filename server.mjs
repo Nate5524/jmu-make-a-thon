@@ -926,6 +926,10 @@ code,pre{background:#111827;color:#e2e8f0;padding:.5rem;border-radius:8px;displa
     }
   });
 
+  app.get("/", (_req, res) => {
+    res.redirect(302, "/jarvis.html");
+  });
+
   return app;
 }
 
