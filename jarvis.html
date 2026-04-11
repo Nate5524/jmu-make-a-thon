@@ -133,6 +133,23 @@
         line-height: 1.55;
         color: var(--text);
         margin-bottom: 1.1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        max-height: min(58vh, 22rem);
+        overflow-y: auto;
+        padding-right: 0.15rem;
+      }
+      .about-dialog__body p {
+        margin: 0;
+      }
+      .about-dialog__section-title {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--accent);
+        letter-spacing: 0.04em;
+        margin: 0;
+        padding-top: 0.15rem;
       }
       .about-dialog__close {
         width: 100%;
@@ -163,21 +180,24 @@
       }
       .sidebar,
     .music-results,
-    .messages {
+    .messages,
+    .about-dialog__body {
       scrollbar-width: thin;
       scrollbar-color: rgba(148,163,184,.35) transparent;
     }
 
     .sidebar::-webkit-scrollbar,
     .music-results::-webkit-scrollbar,
-    .messages::-webkit-scrollbar {
+    .messages::-webkit-scrollbar,
+    .about-dialog__body::-webkit-scrollbar {
         width: 12px;
       height: 12px;
         background: transparent;
       }
       .sidebar::-webkit-scrollbar-thumb,
     .music-results::-webkit-scrollbar-thumb,
-    .messages::-webkit-scrollbar-thumb {
+    .messages::-webkit-scrollbar-thumb,
+    .about-dialog__body::-webkit-scrollbar-thumb {
         background: rgba(148, 163, 184, 0.3);
         border-radius: 3px;
         background-clip: padding-box;
@@ -193,19 +213,24 @@
     .music-results::-webkit-scrollbar-button:vertical:end:decrement,
     .messages::-webkit-scrollbar-button:vertical:start:increment,
     .messages::-webkit-scrollbar-button:vertical:end:decrement,
+    .about-dialog__body::-webkit-scrollbar-button:vertical:start:increment,
+    .about-dialog__body::-webkit-scrollbar-button:vertical:end:decrement,
     .sidebar::-webkit-scrollbar-button:horizontal:start:increment,
     .sidebar::-webkit-scrollbar-button:horizontal:end:decrement,
     .music-results::-webkit-scrollbar-button:horizontal:start:increment,
     .music-results::-webkit-scrollbar-button:horizontal:end:decrement,
     .messages::-webkit-scrollbar-button:horizontal:start:increment,
-    .messages::-webkit-scrollbar-button:horizontal:end:decrement {
+    .messages::-webkit-scrollbar-button:horizontal:end:decrement,
+    .about-dialog__body::-webkit-scrollbar-button:horizontal:start:increment,
+    .about-dialog__body::-webkit-scrollbar-button:horizontal:end:decrement {
       display: none;
       width: 0;
       height: 0;
     }
     .sidebar::-webkit-scrollbar-button:single-button,
     .music-results::-webkit-scrollbar-button:single-button,
-    .messages::-webkit-scrollbar-button:single-button {
+    .messages::-webkit-scrollbar-button:single-button,
+    .about-dialog__body::-webkit-scrollbar-button:single-button {
         display: block;
           background-color: var(--surface);
         background-size: 6px 6px;
@@ -214,12 +239,14 @@
       }
       .sidebar::-webkit-scrollbar-button:single-button:hover,
     .music-results::-webkit-scrollbar-button:single-button:hover,
-    .messages::-webkit-scrollbar-button:single-button:hover {
+    .messages::-webkit-scrollbar-button:single-button:hover,
+    .about-dialog__body::-webkit-scrollbar-button:single-button:hover {
         background-color: var(--surface-2);
       }
       .sidebar::-webkit-scrollbar-button:single-button:vertical:decrement,
     .music-results::-webkit-scrollbar-button:single-button:vertical:decrement,
-    .messages::-webkit-scrollbar-button:single-button:vertical:decrement {
+    .messages::-webkit-scrollbar-button:single-button:vertical:decrement,
+    .about-dialog__body::-webkit-scrollbar-button:single-button:vertical:decrement {
       width: 12px;
         height: 20px;
         background-position: center bottom 4px;
@@ -227,7 +254,8 @@
       }
       .sidebar::-webkit-scrollbar-button:single-button:vertical:increment,
     .music-results::-webkit-scrollbar-button:single-button:vertical:increment,
-    .messages::-webkit-scrollbar-button:single-button:vertical:increment {
+    .messages::-webkit-scrollbar-button:single-button:vertical:increment,
+    .about-dialog__body::-webkit-scrollbar-button:single-button:vertical:increment {
       width: 12px;
         height: 20px;
         background-position: center top 4px;
@@ -235,7 +263,8 @@
       }
     .sidebar::-webkit-scrollbar-button:single-button:horizontal:decrement,
     .music-results::-webkit-scrollbar-button:single-button:horizontal:decrement,
-    .messages::-webkit-scrollbar-button:single-button:horizontal:decrement {
+    .messages::-webkit-scrollbar-button:single-button:horizontal:decrement,
+    .about-dialog__body::-webkit-scrollbar-button:single-button:horizontal:decrement {
       width: 20px;
       height: 12px;
       background-position: right 4px center;
@@ -243,7 +272,8 @@
     }
     .sidebar::-webkit-scrollbar-button:single-button:horizontal:increment,
     .music-results::-webkit-scrollbar-button:single-button:horizontal:increment,
-    .messages::-webkit-scrollbar-button:single-button:horizontal:increment {
+    .messages::-webkit-scrollbar-button:single-button:horizontal:increment,
+    .about-dialog__body::-webkit-scrollbar-button:single-button:horizontal:increment {
       width: 20px;
       height: 12px;
       background-position: left 4px center;
@@ -1326,12 +1356,24 @@
 
 <dialog id="aboutDialog" class="about-dialog" aria-labelledby="aboutDialogTitle">
   <div class="about-dialog__panel">
-    <h2 id="aboutDialogTitle" class="about-dialog__title">About us</h2>
-    <p class="about-dialog__body">
-      We are Team PowerSleep, building Jarvis for the JMU Make-a-Thon: a voice-first assistant that
-      ties together your calendar, smart home demo, and daily context so you can plan your day
-      without digging through apps.
-    </p>
+    <h2 id="aboutDialogTitle" class="about-dialog__title">About Us: The PowerSleep Mission</h2>
+    <div class="about-dialog__body">
+      <p>
+        We are Sleepy Heads, a multi-disciplinary team of students from James Madison University. Our project, PowerSleep, was born from a simple, relatable problem: waking up is hard, and poor sleep habits are a direct drain on mental and physical health. We believe that technology should be a "force multiplier" for your well-being, not just another screen to stare at.
+      </p>
+      <h3 class="about-dialog__section-title">What is PowerSleep?</h3>
+      <p>
+        PowerSleep is an open-source home automation hub designed to turn your morning struggle into a seamless, high-performance routine. By integrating your Google Calendar, real-time Weather, and Spotify, PowerSleep automates your environment to help you rise naturally. Our centerpiece is Jarvis, an advanced AI companion capable of speech-to-text and natural voice interaction. Jarvis doesn't just display your day—he talks you through it, manages your smart home hardware like blinds and lights, and helps you stay on track with your habits.
+      </p>
+      <h3 class="about-dialog__section-title">Our Motivation</h3>
+      <p>
+        We are invested in this because we’ve lived the problem. As students, we know how easy it is to sacrifice sleep, and we wanted to build the tool we wish we had to optimize our own "sleepmaxxing" routines. Unlike rigid, closed-source smart home systems, PowerSleep is built to be consumer-supportive and innovative. We provide a premium AI experience that focuses on resiliency, using agentic capabilities to make waking up fun, productive, and—most importantly—better for your soul.
+      </p>
+      <h3 class="about-dialog__section-title">Quick Stats &amp; Info:</h3>
+      <p><strong>The Team:</strong> A diverse group including Layla, Nate, Enzo, Ben, Jack, and Charlie.</p>
+      <p><strong>The Tech:</strong> Powered by an agentic LLM framework, integrated with Spotify and Google APIs, and hosted for a fully interactive experience.</p>
+      <p><strong>Our Goal:</strong> To fix sleeping habits and improve societal mental health through accessible, open-source infrastructure.</p>
+    </div>
     <button type="button" class="btn about-dialog__close" id="aboutCloseBtn">Close</button>
   </div>
 </dialog>
