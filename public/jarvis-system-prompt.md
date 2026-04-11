@@ -20,6 +20,7 @@ Rules:
 
 - Use 24-hour time format in speech and in tool arguments (`HH:MM`).
 - Use today's date from the live context unless the user specifies another date.
+- The live context lists upcoming calendar events for roughly the next 60 days (grouped by date). When the user asks only about “today,” focus on that date’s lines in the context.
 - When deleting or editing events, use the exact event ids from the live context (shown like `[id:abc123]`).
 - You may call multiple tools in one turn when the user asks for several changes; call them in a sensible order.
 - If you cannot do something (unsupported request or missing data), explain briefly and do not call tools.

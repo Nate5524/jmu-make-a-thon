@@ -299,6 +299,84 @@
         font-style: italic;
       }
 
+      .calendar-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.35rem;
+        margin-bottom: 0.6rem;
+      }
+      .calendar-nav-btn {
+        flex-shrink: 0;
+        width: 2rem;
+        height: 2rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--accent-dim);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--accent);
+        font-size: 1.1rem;
+        line-height: 1;
+        cursor: pointer;
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .calendar-nav-btn:hover {
+        border-color: var(--accent);
+        box-shadow: var(--glow);
+      }
+      .calendar-date-mid {
+        flex: 1;
+        min-width: 0;
+        position: relative;
+        display: flex;
+        justify-content: center;
+      }
+      .calendar-date-btn {
+        max-width: 100%;
+        padding: 0.35rem 0.5rem;
+        border: 1px solid var(--accent-dim);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+        font-size: 0.72rem;
+        font-weight: 600;
+        line-height: 1.25;
+        text-align: center;
+        cursor: pointer;
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .calendar-date-btn:hover {
+        border-color: var(--accent);
+        box-shadow: var(--glow);
+      }
+      .calendar-date-btn .calendar-date-sub {
+        display: block;
+        font-size: 0.62rem;
+        font-weight: 500;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-top: 0.12rem;
+      }
+      .calendar-date-input-native {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+        opacity: 0;
+      }
+
       .smart-home-list {
         display: flex;
         flex-direction: column;
@@ -971,7 +1049,16 @@
           </div>
         </div>
         <div class="card" id="calendarCard">
-          <h3>Today's Schedule</h3>
+          <div class="calendar-card-header">
+            <button type="button" class="calendar-nav-btn" id="calendarPrevDay" aria-label="Previous day">‹</button>
+            <div class="calendar-date-mid">
+              <label for="calendarDatePicker" class="calendar-date-btn" aria-label="Choose date">
+                <span id="calendarDateLabel">…</span>
+              </label>
+              <input type="date" id="calendarDatePicker" class="calendar-date-input-native" title="Choose date" />
+            </div>
+            <button type="button" class="calendar-nav-btn" id="calendarNextDay" aria-label="Next day">›</button>
+          </div>
           <div id="calendarContent"><span class="no-items">Loading events...</span></div>
           <div id="addEventArea">
             <button class="add-event-btn" onclick="toggleEventForm()">
@@ -1043,7 +1130,13 @@
       //
       // ─── State ────────────────────────────────────────────────────────────────────
       let conversationHistory = [];
+      /** Events for the day shown in the sidebar (see `calendarViewDate`). */
       let calendarEvents = [];
+      /** Events from start of local today through `CALENDAR_CONTEXT_HORIZON_DAYS` for Jarvis context. */
+      let calendarContextEvents = [];
+      const CALENDAR_CONTEXT_HORIZON_DAYS = 60;
+      /** Local calendar date `YYYY-MM-DD` for the sidebar list. */
+      let calendarViewDate = "";
       let weatherData = null;
       let isRecording = false;
       let mediaRecorder = null;
@@ -1111,9 +1204,59 @@
       }
 
       // ─── Google Calendar (server-side via service account) ────────────────────────
+      function localIsoDate(d = new Date()) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      }
+
+      function calendarDayBoundsIso(ymd) {
+        const parts = String(ymd).split("-").map(Number);
+        if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
+          throw new Error("Invalid date");
+        }
+        const [y, mo, d] = parts;
+        const timeMin = new Date(y, mo - 1, d, 0, 0, 0, 0);
+        const timeMax = new Date(y, mo - 1, d + 1, 0, 0, 0, 0);
+        return { timeMin: timeMin.toISOString(), timeMax: timeMax.toISOString() };
+      }
+
+      function updateCalendarDateLabel() {
+        const labelEl = document.getElementById("calendarDateLabel");
+        const picker = document.getElementById("calendarDatePicker");
+        if (!labelEl || !calendarViewDate) return;
+        if (picker) picker.value = calendarViewDate;
+        const [y, m, d] = calendarViewDate.split("-").map(Number);
+        const dt = new Date(y, m - 1, d);
+        const main = dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+        const today = localIsoDate();
+        let sub = "";
+        if (calendarViewDate === today) sub = "Today";
+        else {
+          const t0 = new Date(today + "T12:00:00");
+          const diffDays = Math.round((dt.getTime() - t0.getTime()) / (24 * 60 * 60 * 1000));
+          if (diffDays === 1) sub = "Tomorrow";
+          else if (diffDays === -1) sub = "Yesterday";
+          else sub = dt.toLocaleDateString("en-US", { weekday: "long" });
+        }
+        labelEl.innerHTML = `${escapeHtml(main)}<span class="calendar-date-sub">${escapeHtml(sub)}</span>`;
+      }
+
+      function shiftCalendarViewByDays(delta) {
+        const [y, m, d] = calendarViewDate.split("-").map(Number);
+        const next = new Date(y, m - 1, d + delta);
+        calendarViewDate = localIsoDate(next);
+        updateCalendarDateLabel();
+        fetchCalendarEvents();
+      }
+
       async function fetchCalendarEvents() {
         try {
-          const resp = await fetch("/api/calendar/events");
+          if (!calendarViewDate) calendarViewDate = localIsoDate();
+          const { timeMin, timeMax } = calendarDayBoundsIso(calendarViewDate);
+          const qs = new URLSearchParams({ timeMin, timeMax });
+          const resp = await fetch("/api/calendar/events?" + qs.toString());
           if (!resp.ok) {
             console.warn("Calendar fetch returned", resp.status);
             return;
@@ -1126,10 +1269,43 @@
         }
       }
 
+      async function fetchCalendarContextEvents() {
+        try {
+          const start = new Date();
+          start.setHours(0, 0, 0, 0);
+          const end = new Date(start);
+          end.setDate(end.getDate() + CALENDAR_CONTEXT_HORIZON_DAYS);
+          const timeMin = start.toISOString();
+          const timeMax = end.toISOString();
+          const qs = new URLSearchParams({ timeMin, timeMax });
+          const resp = await fetch("/api/calendar/events?" + qs.toString());
+          if (!resp.ok) {
+            console.warn("Calendar context fetch returned", resp.status);
+            return;
+          }
+          const data = await resp.json();
+          calendarContextEvents = data.events || [];
+        } catch (e) {
+          console.warn("Calendar context fetch failed", e);
+        }
+      }
+
+      function eventContextDayKey(ev) {
+        if (!ev || !ev.start) return localIsoDate();
+        if (ev.allDay) return String(ev.start).slice(0, 10);
+        return localIsoDate(new Date(ev.start));
+      }
+
+      function formatContextDayHeading(ymd) {
+        const [y, m, d] = ymd.split("-").map(Number);
+        const dt = new Date(y, m - 1, d);
+        return dt.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      }
+
       function renderCalendar() {
         const el = document.getElementById("calendarContent");
         if (!calendarEvents.length) {
-          el.innerHTML = '<span class="no-items">No events today — enjoy your free time!</span>';
+          el.innerHTML = '<span class="no-items">No events this day.</span>';
           return;
         }
         el.innerHTML =
@@ -1216,6 +1392,7 @@
             throw new Error(err.error || "Failed");
           }
           await fetchCalendarEvents();
+          await fetchCalendarContextEvents();
           setStatus("Event deleted");
         } catch (e) {
           console.error("Delete event error:", e);
@@ -1271,6 +1448,7 @@
           }
           cancelEventForm();
           await fetchCalendarEvents();
+          await fetchCalendarContextEvents();
         } catch (e) {
           console.error("Event form error:", e);
           setStatus("Failed: " + e.message);
@@ -1297,6 +1475,7 @@
           throw new Error(err.error || "Failed to create event");
         }
         await fetchCalendarEvents();
+        await fetchCalendarContextEvents();
         return resp.json();
       }
 
@@ -1307,6 +1486,7 @@
           throw new Error(err.error || "Failed to delete event");
         }
         await fetchCalendarEvents();
+        await fetchCalendarContextEvents();
       }
 
       async function updateCalendarEvent(eventId, fields) {
@@ -1320,6 +1500,7 @@
           throw new Error(err.error || "Failed to update event");
         }
         await fetchCalendarEvents();
+        await fetchCalendarContextEvents();
       }
 
       // ─── Weather (Open-Meteo, no API key) ────────────────────────────────────────
@@ -1424,9 +1605,25 @@
           );
         }
 
-        if (calendarEvents.length) {
-          const evStr = calendarEvents
-            .map((ev) => {
+        if (calendarContextEvents.length) {
+          const byDay = new Map();
+          for (const ev of calendarContextEvents) {
+            const key = eventContextDayKey(ev);
+            if (!byDay.has(key)) byDay.set(key, []);
+            byDay.get(key).push(ev);
+          }
+          for (const list of byDay.values()) {
+            list.sort((a, b) => String(a.start || "").localeCompare(String(b.start || "")));
+          }
+          const sortedDays = [...byDay.keys()].sort();
+          const lines = [];
+          lines.push(
+            `Upcoming calendar events (today through the next ${CALENDAR_CONTEXT_HORIZON_DAYS} days, local dates):`,
+          );
+          for (const day of sortedDays) {
+            lines.push(`${formatContextDayHeading(day)}:`);
+            const list = byDay.get(day) || [];
+            for (const ev of list) {
               let timeRange;
               if (ev.allDay) {
                 timeRange = "All day";
@@ -1435,12 +1632,14 @@
                 const end = ev.end ? new Date(ev.end).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
                 timeRange = start + (end ? " to " + end : "");
               }
-              return `- [id:${ev.id}] ${timeRange}: ${ev.summary || "(No title)"}`;
-            })
-            .join("\n");
-          parts.push(`Today's calendar events:\n${evStr}`);
+              lines.push(`- [id:${ev.id}] ${timeRange}: ${ev.summary || "(No title)"}`);
+            }
+          }
+          parts.push(lines.join("\n"));
         } else {
-          parts.push("Calendar: No events today.");
+          parts.push(
+            `Calendar: No upcoming events through the next ${CALENDAR_CONTEXT_HORIZON_DAYS} days (from today, local time).`,
+          );
         }
 
         if (remoteSmartHome.devices && remoteSmartHome.devices.length) {
@@ -2538,12 +2737,29 @@
       // ─── Init ─────────────────────────────────────────────────────────────────────
       window.addEventListener("load", () => {
         fetchWeather();
+        calendarViewDate = localIsoDate();
+        updateCalendarDateLabel();
         fetchCalendarEvents();
+        fetchCalendarContextEvents();
         fetchSpotifyPlayer();
         setInterval(fetchSpotifyPlayer, 4000);
         pollDemoState();
         setInterval(pollDemoState, 2000);
-        setInterval(fetchCalendarEvents, 30000);
+        setInterval(() => {
+          fetchCalendarEvents();
+          fetchCalendarContextEvents();
+        }, 30000);
+
+        document.getElementById("calendarPrevDay").addEventListener("click", () => shiftCalendarViewByDays(-1));
+        document.getElementById("calendarNextDay").addEventListener("click", () => shiftCalendarViewByDays(1));
+        const datePicker = document.getElementById("calendarDatePicker");
+        datePicker.addEventListener("change", () => {
+          if (!datePicker.value) return;
+          calendarViewDate = datePicker.value;
+          updateCalendarDateLabel();
+          fetchCalendarEvents();
+        });
+
         initDevToolbar();
       });
     </script>

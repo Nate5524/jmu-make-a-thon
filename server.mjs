@@ -355,32 +355,48 @@ function createApp() {
   });
 
   // ─── Calendar endpoints ────────────────────────────────────────────────────
-  app.get("/api/calendar/events", async (_req, res) => {
+  app.get("/api/calendar/events", async (req, res) => {
     if (!calendarClient || !CALENDAR_ID) {
       return res
         .status(503)
         .json({ error: "Google Calendar not configured on the server." });
     }
     try {
-      const now = new Date();
-      const startOfDay = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate()
-      ).toISOString();
-      const endOfDay = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + 1
-      ).toISOString();
+      let timeMin;
+      let timeMax;
+      const qMin = req.query.timeMin;
+      const qMax = req.query.timeMax;
+      if (typeof qMin === "string" && qMin && typeof qMax === "string" && qMax) {
+        timeMin = new Date(qMin);
+        timeMax = new Date(qMax);
+        if (Number.isNaN(timeMin.getTime()) || Number.isNaN(timeMax.getTime())) {
+          return res.status(400).json({ error: "Invalid timeMin or timeMax." });
+        }
+        if (timeMax.getTime() <= timeMin.getTime()) {
+          return res.status(400).json({ error: "timeMax must be after timeMin." });
+        }
+        const maxSpanMs = 366 * 24 * 60 * 60 * 1000;
+        if (timeMax.getTime() - timeMin.getTime() > maxSpanMs) {
+          return res.status(400).json({ error: "Requested range too large (max 366 days)." });
+        }
+      } else {
+        const now = new Date();
+        timeMin = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        timeMax = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      }
+
+      const spanMs = timeMax.getTime() - timeMin.getTime();
+      const spanDays = spanMs / (24 * 60 * 60 * 1000);
+      const maxResults =
+        spanDays <= 1.5 ? 80 : Math.min(500, Math.ceil(spanDays) * 12 + 40);
 
       const resp = await calendarClient.events.list({
         calendarId: CALENDAR_ID,
-        timeMin: startOfDay,
-        timeMax: endOfDay,
+        timeMin: timeMin.toISOString(),
+        timeMax: timeMax.toISOString(),
         singleEvents: true,
         orderBy: "startTime",
-        maxResults: 25,
+        maxResults,
       });
 
       const events = (resp.data.items || []).map((ev) => ({
