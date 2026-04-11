@@ -2346,15 +2346,6 @@
                 );
               }
 
-              if (remoteSmartHome.devices && remoteSmartHome.devices.length) {
-                const lines = remoteSmartHome.devices.map((d) => {
-                  if (isBlindsDevice(d)) {
-                    return `- ${d.name}: use Open/Close (physical position is not tracked in the app)`;
-                  }
-                  return `- ${d.name}: ${d.on ? "on" : "off"}`;
-                });
-                parts.push(`Smart home (demo):\n${lines.join("\n")}`);
-              }
 
               if (spotifyContextHint && spotifyContextHint.trim()) {
                 parts.push(spotifyContextHint.trim());
@@ -3511,19 +3502,11 @@
               </div>
             </div>`;
                   }
-                  const v = d.on ? 1 : 0;
-                  const idEsc = escapeHtml(d.id);
                   return `
             <div class="smart-home-row">
               <div class="smart-home-row__name">${escapeHtml(d.name)}</div>
               <div class="smart-home-row__controls">
-                <span class="smart-home-end-label smart-home-end-label--left">Off</span>
-                <label class="smart-home-toggle">
-                  <input type="checkbox" class="smart-home-slider" data-device-id="${idEsc}" ${v ? "checked" : ""} aria-label="Lights" />
-                  <span class="smart-home-toggle__track"></span>
-                  <span class="smart-home-toggle__thumb"></span>
-                </label>
-                <span class="smart-home-end-label smart-home-end-label--right">On</span>
+                <button type="button" class="smart-home-blinds-btn smart-home-blinds-btn--primary" data-lights-toggle="1" aria-label="Toggle lights">Toggle</button>
               </div>
             </div>`;
                 })
@@ -3771,6 +3754,40 @@
             }
 
             document.getElementById("smartHomeContent").addEventListener("click", async (e) => {
+              const lightsBtn = e.target.closest("[data-lights-toggle]");
+              if (lightsBtn) {
+                lightsBtn.disabled = true;
+                smartHomeMutationPending = true;
+                let commitSucceeded = false;
+                try {
+                  const r = await fetch("./api/smart-home/toggle", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: "ambient" }),
+                  });
+                  const data = await r.json().catch(() => ({}));
+                  if (!r.ok) {
+                    setStatus(data.error || "Lights command failed");
+                    return;
+                  }
+                  if (data.smartHome && Array.isArray(data.smartHome.devices)) {
+                    remoteSmartHome = normalizeSmartHomeClient(data.smartHome.devices);
+                  }
+                  const rev = Number(data.revision);
+                  if (Number.isFinite(rev)) lastDemoRevision = rev;
+                  renderSmartHome();
+                  commitSucceeded = true;
+                } catch (err) {
+                  console.warn("Lights toggle failed", err);
+                  setStatus("Lights command failed — is the server running?");
+                } finally {
+                  smartHomeMutationPending = false;
+                  if (!commitSucceeded) lightsBtn.disabled = false;
+                }
+                if (commitSucceeded) setStatus("Ready");
+                return;
+              }
+
               const btn = e.target.closest("[data-blinds-action]");
               if (!btn) return;
               const action = btn.dataset.blindsAction;

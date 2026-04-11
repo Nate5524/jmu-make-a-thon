@@ -65,7 +65,7 @@ var JARVIS_TOOLS = [
     function: {
       name: 'set_demo_smart_home_device',
       description:
-        'Set the demo smart home devices shown in the sidebar. Device `ambient` is the lights (on/off). For `blinds`, prefer `open_demo_smart_home_blinds` / `close_demo_smart_home_blinds` (always fire webhooks). If you use this tool for blinds, `on=true` triggers the open webhook and `on=false` the close webhook every time (physical position is not tracked).',
+        'Control smart home devices. Device `ambient` is the lights (on/off). For blinds, prefer `open_demo_smart_home_blinds` / `close_demo_smart_home_blinds`.',
       parameters: {
         type: 'object',
         properties: {
@@ -84,8 +84,7 @@ var JARVIS_TOOLS = [
     type: 'function',
     function: {
       name: 'open_demo_smart_home_blinds',
-      description:
-        'Raise/open the blinds. Always sends the physical open-blinds webhook when configured (same as the sidebar Open button).',
+      description: 'Open/raise the blinds.',
       parameters: { type: 'object', properties: {} },
     },
   },
@@ -93,8 +92,7 @@ var JARVIS_TOOLS = [
     type: 'function',
     function: {
       name: 'close_demo_smart_home_blinds',
-      description:
-        'Lower/close the blinds. Always sends the physical close-blinds webhook when configured (same as the sidebar Close button).',
+      description: 'Close/lower the blinds.',
       parameters: { type: 'object', properties: {} },
     },
   },
@@ -111,8 +109,7 @@ var JARVIS_TOOLS = [
     type: 'function',
     function: {
       name: 'toggle_demo_smart_home_lights',
-      description:
-        'Flip the demo lights (`ambient`) on the server and trigger the same physical toggle path as the GUI (webhook when configured). Use when the user asks to toggle or switch the lights without specifying an absolute on/off.',
+      description: 'Toggle the lights (flips on→off or off→on). Use when the user wants to toggle rather than set a specific state.',
       parameters: { type: 'object', properties: {} },
     },
   },
