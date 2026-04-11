@@ -1,1097 +1,1360 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>PowerSleep — Jarvis</title>
-  <script src="https://js.puter.com/v2/"></script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg: #0a0e17;
-      --surface: #111827;
-      --surface-2: #1a2236;
-      --accent: #38bdf8;
-      --accent-dim: #1e3a5f;
-      --text: #e2e8f0;
-      --text-dim: #94a3b8;
-      --danger: #f87171;
-      --success: #4ade80;
-      --radius: 12px;
-      --glow: 0 0 20px rgba(56, 189, 248, .15);
-    }
-
-    body {
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: .75rem 1.25rem;
-      background: var(--surface);
-      border-bottom: 1px solid var(--accent-dim);
-    }
-
-    .logo {
-      font-size: 1.25rem;
-      font-weight: 700;
-      letter-spacing: .12em;
-      color: var(--accent);
-      text-transform: uppercase;
-    }
-
-    .logo span { color: var(--text-dim); font-weight: 400; font-size: .8rem; letter-spacing: .05em; }
-    a.logo { text-decoration: none; color: inherit; }
-
-    .header-actions { display: flex; gap: .5rem; }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: .4rem;
-      padding: .45rem .9rem;
-      border: 1px solid var(--accent-dim);
-      border-radius: var(--radius);
-      background: var(--surface-2);
-      color: var(--text);
-      font-size: .8rem;
-      cursor: pointer;
-      transition: all .2s;
-    }
-    .btn:hover { border-color: var(--accent); box-shadow: var(--glow); }
-    .btn.connected { border-color: var(--success); color: var(--success); }
-    a.btn { text-decoration: none; color: inherit; }
-
-    .layout {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 280px 1fr;
-      grid-template-rows: 1fr auto;
-      gap: 0;
-      min-height: 0;
-      overflow: hidden;
-    }
-
-    /* ---------- sidebar ---------- */
-    .sidebar {
-      grid-row: 1 / 3;
-      background: var(--surface);
-      border-right: 1px solid var(--accent-dim);
-      padding: 1rem;
-      overflow-y: auto;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-    .sidebar::-webkit-scrollbar {
-      width: 12px;
-      background: transparent;
-    }
-    .sidebar::-webkit-scrollbar-thumb {
-      background: rgba(148,163,184,.3);
-      border-radius: 3px;
-      background-clip: padding-box;
-      border-left: 3px solid transparent;
-      border-right: 3px solid transparent;
-    }
-    .sidebar::-webkit-scrollbar-button:single-button {
-      display: block;
-      width: 12px;
-      background-color: var(--surface);
-      background-size: 6px 6px;
-      background-repeat: no-repeat;
-      cursor: pointer;
-    }
-    .sidebar::-webkit-scrollbar-button:single-button:hover {
-      background-color: var(--surface-2);
-    }
-    .sidebar::-webkit-scrollbar-button:single-button:vertical:decrement {
-      height: 20px;
-      background-position: center bottom 4px;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1 7L5 3l4 4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    }
-    .sidebar::-webkit-scrollbar-button:single-button:vertical:increment {
-      height: 20px;
-      background-position: center top 4px;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1 3L5 7l4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    }
-
-    .card {
-      background: var(--surface-2);
-      border: 1px solid var(--accent-dim);
-      border-radius: var(--radius);
-      padding: .85rem;
-    }
-    .card h3 {
-      font-size: .7rem;
-      text-transform: uppercase;
-      letter-spacing: .1em;
-      color: var(--accent);
-      margin-bottom: .6rem;
-    }
-
-    .weather-now {
-      display: flex;
-      align-items: center;
-      gap: .75rem;
-    }
-    .weather-temp {
-      font-size: 2rem;
-      font-weight: 700;
-      line-height: 1;
-    }
-    .weather-desc { font-size: .85rem; color: var(--text-dim); }
-    .weather-details { font-size: .75rem; color: var(--text-dim); margin-top: .5rem; }
-
-    .event-list { list-style: none; display: flex; flex-direction: column; gap: .45rem; }
-    .event-list li {
-      font-size: .8rem;
-      padding: .4rem .55rem;
-      background: rgba(56,189,248,.06);
-      border-left: 3px solid var(--accent);
-      border-radius: 4px;
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: .35rem;
-    }
-    .event-info { flex: 1; min-width: 0; }
-    .event-time { color: var(--accent); font-weight: 600; font-size: .7rem; }
-    .event-summary { color: var(--text); }
-    .event-actions { display: flex; gap: .15rem; flex-shrink: 0; }
-    .event-actions button {
-      background: none; border: none; cursor: pointer; padding: 2px;
-      color: var(--text-dim); transition: color .2s;
-    }
-    .event-actions button:hover { color: var(--accent); }
-    .event-actions button.del-btn:hover { color: var(--danger); }
-    .no-items { color: var(--text-dim); font-size: .8rem; font-style: italic; }
-
-    .smart-home-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-    }
-    #smartHomeCard { container-type: inline-size; }
-    .smart-home-row {
-      display: flex;
-      align-items: center;
-      gap: .25rem .75rem;
-      padding: .55rem 0;
-      border-bottom: 1px solid rgba(30,58,95,.4);
-    }
-    .smart-home-row:last-child { border-bottom: none; }
-    .smart-home-row__name {
-      font-size: .85rem;
-      font-weight: 600;
-      color: var(--text);
-      white-space: nowrap;
-      flex: 1;
-      min-width: 0;
-    }
-    .smart-home-row__controls {
-      display: flex;
-      align-items: center;
-      gap: .65rem;
-    }
-    @container (max-width: 195px) {
-      .smart-home-row {
-        flex-direction: column;
-        align-items: flex-start;
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>PowerSleep — Jarvis</title>
+    <script src="https://js.puter.com/v2/"></script>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       }
-    }
-    .smart-home-end-label {
-      font-size: .75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      color: var(--text-dim);
-      line-height: 1;
-      user-select: none;
-    }
-    .smart-home-end-label--left {
-      width: 2.6rem;
-      text-align: right;
-    }
-    .smart-home-end-label--right {
-      width: 1.4rem;
-      text-align: left;
-    }
-    .smart-home-toggle {
-      position: relative;
-      width: 2.4rem;
-      height: .95rem;
-      flex-shrink: 0;
-      cursor: pointer;
-      border: none;
-      padding: 0;
-      background: none;
-    }
-    .smart-home-toggle input {
-      position: absolute;
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-    .smart-home-toggle__track {
-      position: absolute;
-      inset: 0;
-      border-radius: .475rem;
-      background: rgba(148,163,184,.25);
-      border: 1.5px solid rgba(148,163,184,.35);
-      transition: background .2s, border-color .2s;
-    }
-    .smart-home-toggle__thumb {
-      position: absolute;
-      top: 1px;
-      left: 1px;
-      width: calc(.95rem - 2px);
-      height: calc(.95rem - 2px);
-      border-radius: 50%;
-      background: #94a3b8;
-      box-shadow: 0 1px 2px rgba(0,0,0,.4);
-      transition: transform .2s, background .2s;
-    }
-    .smart-home-toggle input:checked ~ .smart-home-toggle__track {
-      background: rgba(56,189,248,.2);
-      border-color: rgba(56,189,248,.6);
-    }
-    .smart-home-toggle input:checked ~ .smart-home-toggle__thumb {
-      transform: translateX(calc(2.4rem - .95rem));
-      background: var(--accent);
-      box-shadow: 0 1px 2px rgba(0,0,0,.4);
-    }
 
-    /* ---------- music (Spotify) ---------- */
-    .music-hint {
-      font-size: .72rem;
-      color: var(--text-dim);
-      margin-top: .4rem;
-      line-height: 1.35;
-    }
-    a.music-link { color: var(--accent); }
-    .music-now {
-      display: flex;
-      align-items: center;
-      gap: .65rem;
-    }
-    .music-art {
-      width: 56px;
-      height: 56px;
-      border-radius: 8px;
-      object-fit: cover;
-      flex-shrink: 0;
-      background: var(--bg);
-    }
-    .music-art--placeholder {
-      background: linear-gradient(135deg, var(--accent-dim), var(--surface));
-    }
-    .music-meta { min-width: 0; }
-    .music-title {
-      font-size: .82rem;
-      font-weight: 600;
-      color: var(--text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .music-artist {
-      font-size: .72rem;
-      color: var(--text-dim);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .music-controls-row {
-      display: none;
-      align-items: center;
-      justify-content: center;
-      gap: .5rem;
-      margin-top: .55rem;
-    }
-    .music-controls-row.visible { display: flex; }
-    .music-icon-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      border: 1px solid var(--accent-dim);
-      background: var(--surface);
-      color: var(--accent);
-      cursor: pointer;
-      transition: border-color .2s, box-shadow .2s;
-    }
-    .music-icon-btn:hover { border-color: var(--accent); box-shadow: var(--glow); }
-    .music-icon-btn:disabled { opacity: .45; cursor: not-allowed; }
-    .music-web-btn {
-      width: 100%;
-      margin-top: .45rem;
-      padding: .35rem .5rem;
-      font-size: .72rem;
-      border-radius: 8px;
-      border: 1px dashed var(--accent-dim);
-      background: transparent;
-      color: var(--accent);
-      cursor: pointer;
-      transition: all .2s;
-    }
-    .music-web-btn:hover { border-color: var(--accent); background: rgba(56,189,248,.06); }
-    .music-web-status { font-size: .68rem; color: var(--text-dim); margin-top: .25rem; text-align: center; }
-    .music-search-wrap { margin-top: .55rem; }
-    .music-search-wrap input {
-      width: 100%;
-      padding: .35rem .5rem;
-      border: 1px solid var(--accent-dim);
-      border-radius: 8px;
-      background: var(--bg);
-      color: var(--text);
-      font-size: .75rem;
-      outline: none;
-    }
-    .music-search-wrap input:focus { border-color: var(--accent); }
-    .music-results {
-      list-style: none;
-      margin-top: .35rem;
-      max-height: 9rem;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: .25rem;
-    }
-    .music-results button {
-      width: 100%;
-      text-align: left;
-      padding: .35rem .45rem;
-      border: 1px solid transparent;
-      border-radius: 6px;
-      background: rgba(56,189,248,.06);
-      color: var(--text);
-      font-size: .72rem;
-      cursor: pointer;
-      transition: border-color .2s;
-    }
-    .music-results button:hover { border-color: var(--accent-dim); }
+      :root {
+        --bg: #0a0e17;
+        --surface: #111827;
+        --surface-2: #1a2236;
+        --accent: #38bdf8;
+        --accent-dim: #1e3a5f;
+        --text: #e2e8f0;
+        --text-dim: #94a3b8;
+        --danger: #f87171;
+        --success: #4ade80;
+        --radius: 12px;
+        --glow: 0 0 20px rgba(56, 189, 248, 0.15);
+      }
 
-    /* ---------- chat ---------- */
-    .chat {
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-      overflow: hidden;
-    }
-
-    .messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 1.25rem 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: .75rem;
-    }
-
-    .msg {
-      max-width: 75%;
-      padding: .65rem 1rem;
-      border-radius: var(--radius);
-      font-size: .9rem;
-      line-height: 1.5;
-      animation: fadeIn .25s ease;
-    }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-
-    .msg.user {
-      align-self: flex-end;
-      background: var(--accent-dim);
-      border: 1px solid var(--accent);
-      color: var(--text);
-    }
-    .msg.assistant {
-      align-self: flex-start;
-      background: var(--surface-2);
-      border: 1px solid var(--accent-dim);
-    }
-    .msg .label {
-      font-size: .65rem;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-      color: var(--accent);
-      margin-bottom: .2rem;
-    }
-
-    /* ---------- input bar ---------- */
-    .input-bar {
-      display: flex;
-      align-items: center;
-      gap: .65rem;
-      padding: .75rem 1.25rem;
-      background: var(--surface);
-      border-top: 1px solid var(--accent-dim);
-    }
-
-    .input-bar input {
-      flex: 1;
-      padding: .55rem .85rem;
-      border: 1px solid var(--accent-dim);
-      border-radius: var(--radius);
-      background: var(--surface-2);
-      color: var(--text);
-      font-size: .9rem;
-      outline: none;
-      transition: border .2s;
-    }
-    .input-bar input:focus { border-color: var(--accent); }
-
-    .mic-btn {
-      width: 46px; height: 46px;
-      border-radius: 50%;
-      border: 2px solid var(--accent-dim);
-      background: var(--surface-2);
-      color: var(--text);
-      font-size: 1.2rem;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all .2s;
-      position: relative;
-    }
-    .mic-btn:hover { border-color: var(--accent); box-shadow: var(--glow); }
-    .mic-btn.recording {
-      border-color: var(--danger);
-      background: rgba(248, 113, 113, .15);
-      animation: pulse 1.2s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,.4); }
-      50% { box-shadow: 0 0 0 10px rgba(248,113,113,0); }
-    }
-
-    .send-btn {
-      width: 46px; height: 46px;
-      border-radius: 50%;
-      border: 2px solid var(--accent-dim);
-      background: var(--surface-2);
-      color: var(--accent);
-      font-size: 1.1rem;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all .2s;
-    }
-    .send-btn:hover { border-color: var(--accent); background: var(--accent-dim); }
-
-    .status-bar {
-      font-size: .7rem;
-      color: var(--text-dim);
-      padding: .25rem 1.25rem;
-      background: var(--surface);
-      text-align: center;
-    }
-
-    /* ---------- event creation form ---------- */
-    .add-event-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: .35rem;
-      width: 100%;
-      margin-top: .5rem;
-      padding: .4rem;
-      border: 1px dashed var(--accent-dim);
-      border-radius: var(--radius);
-      background: transparent;
-      color: var(--accent);
-      font-size: .75rem;
-      cursor: pointer;
-      transition: all .2s;
-    }
-    .add-event-btn:hover { border-color: var(--accent); background: rgba(56,189,248,.06); }
-
-    .event-form { margin-top: .5rem; display: flex; flex-direction: column; gap: .4rem; }
-    .event-form input[type="text"],
-    .event-form input[type="date"],
-    .event-form input[type="time"] {
-      padding: .35rem .5rem;
-      border: 1px solid var(--accent-dim);
-      border-radius: 6px;
-      background: var(--bg);
-      color: var(--text);
-      font-size: .78rem;
-      outline: none;
-      transition: border .2s;
-    }
-    .event-form input:focus { border-color: var(--accent); }
-    .event-form .row { display: flex; gap: .35rem; }
-    .event-form .row input { flex: 1; min-width: 0; }
-    .event-form .checkbox-row {
-      display: flex; align-items: center; gap: .4rem; font-size: .78rem; color: var(--text-dim);
-    }
-    .event-form .checkbox-row input[type="checkbox"] { accent-color: var(--accent); }
-    .event-form-actions { display: flex; gap: .35rem; margin-top: .15rem; }
-    .event-form-actions button {
-      flex: 1;
-      padding: .35rem;
-      border: 1px solid var(--accent-dim);
-      border-radius: 6px;
-      font-size: .75rem;
-      cursor: pointer;
-      transition: all .2s;
-    }
-    .event-form-actions .save-btn { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
-    .event-form-actions .save-btn:hover { background: var(--accent); color: var(--bg); }
-    .event-form-actions .cancel-btn { background: transparent; color: var(--text-dim); }
-    .event-form-actions .cancel-btn:hover { border-color: var(--text-dim); }
-
-    /* dev toolbar */
-    #devToolbar {
-      display: flex; align-items: center; gap: .5rem;
-      padding: .35rem .75rem;
-      background: #1a1a2e; border-bottom: 1px solid #f59e0b44;
-      font-size: .72rem;
-    }
-    #devToolbar .dev-label {
-      font-weight: 700; color: #f59e0b; letter-spacing: .08em;
-    }
-    #devToolbar button {
-      padding: .25rem .6rem; border: 1px solid #f59e0b44; border-radius: 4px;
-      background: transparent; color: #f59e0b; font-size: .7rem; cursor: pointer;
-      transition: background .15s;
-    }
-    #devToolbar button:hover { background: #f59e0b22; }
-
-    /* ---------- sidebar toggle button ---------- */
-    .sidebar-toggle {
-      display: none;
-      align-items: center;
-      justify-content: center;
-      width: 36px;
-      height: 36px;
-      border: 1px solid var(--accent-dim);
-      border-radius: 8px;
-      background: var(--surface-2);
-      color: var(--text);
-      cursor: pointer;
-      flex-shrink: 0;
-      transition: border-color .2s;
-    }
-    .sidebar-toggle:hover { border-color: var(--accent); }
-
-    .sidebar-close {
-      display: none;
-      align-items: center;
-      justify-content: center;
-      align-self: flex-end;
-      width: 30px;
-      height: 30px;
-      border: none;
-      border-radius: 6px;
-      background: transparent;
-      color: var(--text-dim);
-      cursor: pointer;
-      flex-shrink: 0;
-      transition: color .2s;
-    }
-    .sidebar-close:hover { color: var(--text); }
-
-    .sidebar-backdrop {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 99;
-      background: rgba(0,0,0,.5);
-    }
-    .sidebar-backdrop.visible { display: block; }
-
-    /* ---------- responsive ---------- */
-    @media (max-width: 768px) {
-      /* iOS Safari: prefer svh (UI expanded) so layout height matches visible area; fall back to dvh/vh. */
       body {
+        font-family:
+          "Segoe UI",
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
         height: 100vh;
-        height: 100dvh;
-        height: 100svh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
       }
-      .sidebar-toggle { display: flex; }
-      .sidebar-close { display: flex; }
-      .logo { flex: 1; text-align: center; }
-      .header-actions { width: 36px; }
-      .layout { grid-template-columns: 1fr; }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1.25rem;
+        background: var(--surface);
+        border-bottom: 1px solid var(--accent-dim);
+      }
+
+      .logo {
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        color: var(--accent);
+        text-transform: uppercase;
+      }
+
+      .logo span {
+        color: var(--text-dim);
+        font-weight: 400;
+        font-size: 0.8rem;
+        letter-spacing: 0.05em;
+      }
+      a.logo {
+        text-decoration: none;
+        color: inherit;
+      }
+
+      .header-actions {
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.45rem 0.9rem;
+        border: 1px solid var(--accent-dim);
+        border-radius: var(--radius);
+        background: var(--surface-2);
+        color: var(--text);
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .btn:hover {
+        border-color: var(--accent);
+        box-shadow: var(--glow);
+      }
+      .btn.connected {
+        border-color: var(--success);
+        color: var(--success);
+      }
+      a.btn {
+        text-decoration: none;
+        color: inherit;
+      }
+
+      .layout {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        grid-template-rows: 1fr auto;
+        gap: 0;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      /* ---------- sidebar ---------- */
       .sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        width: 280px;
-        z-index: 100;
-        grid-row: auto;
+        grid-row: 1 / 3;
+        background: var(--surface);
         border-right: 1px solid var(--accent-dim);
-        transform: translateX(-100%);
-        transition: transform .25s ease;
+        padding: 1rem;
+        overflow-y: auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
       }
-      .sidebar.open {
-        transform: translateX(0);
+      .sidebar::-webkit-scrollbar {
+        width: 12px;
+        background: transparent;
       }
-      /* Keep the composer above Safari bottom chrome (URL bar can be ~44–83px) + home indicator. */
+      .sidebar::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.3);
+        border-radius: 3px;
+        background-clip: padding-box;
+        border-left: 3px solid transparent;
+        border-right: 3px solid transparent;
+      }
+      .sidebar::-webkit-scrollbar-button:single-button {
+        display: block;
+        width: 12px;
+        background-color: var(--surface);
+        background-size: 6px 6px;
+        background-repeat: no-repeat;
+        cursor: pointer;
+      }
+      .sidebar::-webkit-scrollbar-button:single-button:hover {
+        background-color: var(--surface-2);
+      }
+      .sidebar::-webkit-scrollbar-button:single-button:vertical:decrement {
+        height: 20px;
+        background-position: center bottom 4px;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1 7L5 3l4 4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      }
+      .sidebar::-webkit-scrollbar-button:single-button:vertical:increment {
+        height: 20px;
+        background-position: center top 4px;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1 3L5 7l4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      }
+      .card {
+        background: var(--surface-2);
+        border: 1px solid var(--accent-dim);
+        border-radius: var(--radius);
+        padding: 0.85rem;
+      }
+      .card h3 {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--accent);
+        margin-bottom: 0.6rem;
+      }
+
+      .weather-now {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .weather-temp {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1;
+      }
+      .weather-desc {
+        font-size: 0.85rem;
+        color: var(--text-dim);
+      }
+      .weather-details {
+        font-size: 0.75rem;
+        color: var(--text-dim);
+        margin-top: 0.5rem;
+      }
+
+      .event-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+      }
+      .event-list li {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.55rem;
+        background: rgba(56, 189, 248, 0.06);
+        border-left: 3px solid var(--accent);
+        border-radius: 4px;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.35rem;
+      }
+      .event-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .event-time {
+        color: var(--accent);
+        font-weight: 600;
+        font-size: 0.7rem;
+      }
+      .event-summary {
+        color: var(--text);
+      }
+      .event-actions {
+        display: flex;
+        gap: 0.15rem;
+        flex-shrink: 0;
+      }
+      .event-actions button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 2px;
+        color: var(--text-dim);
+        transition: color 0.2s;
+      }
+      .event-actions button:hover {
+        color: var(--accent);
+      }
+      .event-actions button.del-btn:hover {
+        color: var(--danger);
+      }
+      .no-items {
+        color: var(--text-dim);
+        font-size: 0.8rem;
+        font-style: italic;
+      }
+
+      .smart-home-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+      #smartHomeCard {
+        container-type: inline-size;
+      }
+      .smart-home-row {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem 0.75rem;
+        padding: 0.55rem 0;
+        border-bottom: 1px solid rgba(30, 58, 95, 0.4);
+      }
+      .smart-home-row:last-child {
+        border-bottom: none;
+      }
+      .smart-home-row__name {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+        flex: 1;
+        min-width: 0;
+      }
+      .smart-home-row__controls {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+      }
+      @container (max-width: 195px) {
+        .smart-home-row {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+      .smart-home-end-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-dim);
+        line-height: 1;
+        user-select: none;
+      }
+      .smart-home-end-label--left {
+        width: 2.6rem;
+        text-align: right;
+      }
+      .smart-home-end-label--right {
+        width: 1.4rem;
+        text-align: left;
+      }
+      .smart-home-toggle {
+        position: relative;
+        width: 2.4rem;
+        height: 0.95rem;
+        flex-shrink: 0;
+        cursor: pointer;
+        border: none;
+        padding: 0;
+        background: none;
+      }
+      .smart-home-toggle input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .smart-home-toggle__track {
+        position: absolute;
+        inset: 0;
+        border-radius: 0.475rem;
+        background: rgba(148, 163, 184, 0.25);
+        border: 1.5px solid rgba(148, 163, 184, 0.35);
+        transition:
+          background 0.2s,
+          border-color 0.2s;
+      }
+      .smart-home-toggle__thumb {
+        position: absolute;
+        top: 1px;
+        left: 1px;
+        width: calc(0.95rem - 2px);
+        height: calc(0.95rem - 2px);
+        border-radius: 50%;
+        background: #94a3b8;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+        transition:
+          transform 0.2s,
+          background 0.2s;
+      }
+      .smart-home-toggle input:checked ~ .smart-home-toggle__track {
+        background: rgba(56, 189, 248, 0.2);
+        border-color: rgba(56, 189, 248, 0.6);
+      }
+      .smart-home-toggle input:checked ~ .smart-home-toggle__thumb {
+        transform: translateX(calc(2.4rem - 0.95rem));
+        background: var(--accent);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+      }
+
+      /* ---------- music (Spotify) ---------- */
+      .music-hint {
+        font-size: 0.72rem;
+        color: var(--text-dim);
+        margin-top: 0.4rem;
+        line-height: 1.35;
+      }
+      a.music-link {
+        color: var(--accent);
+      }
+      .music-now {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+      }
+      .music-art {
+        width: 56px;
+        height: 56px;
+        border-radius: 8px;
+        object-fit: cover;
+        flex-shrink: 0;
+        background: var(--bg);
+      }
+      .music-art--placeholder {
+        background: linear-gradient(135deg, var(--accent-dim), var(--surface));
+      }
+      .music-meta {
+        min-width: 0;
+      }
+      .music-title {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .music-artist {
+        font-size: 0.72rem;
+        color: var(--text-dim);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .music-controls-row {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-top: 0.55rem;
+      }
+      .music-controls-row.visible {
+        display: flex;
+      }
+      .music-icon-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 1px solid var(--accent-dim);
+        background: var(--surface);
+        color: var(--accent);
+        cursor: pointer;
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .music-icon-btn:hover {
+        border-color: var(--accent);
+        box-shadow: var(--glow);
+      }
+      .music-icon-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .music-web-btn {
+        width: 100%;
+        margin-top: 0.45rem;
+        padding: 0.35rem 0.5rem;
+        font-size: 0.72rem;
+        border-radius: 8px;
+        border: 1px dashed var(--accent-dim);
+        background: transparent;
+        color: var(--accent);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .music-web-btn:hover {
+        border-color: var(--accent);
+        background: rgba(56, 189, 248, 0.06);
+      }
+      .music-web-status {
+        font-size: 0.68rem;
+        color: var(--text-dim);
+        margin-top: 0.25rem;
+        text-align: center;
+      }
+      .music-search-wrap {
+        margin-top: 0.55rem;
+      }
+      .music-search-wrap input {
+        width: 100%;
+        padding: 0.35rem 0.5rem;
+        border: 1px solid var(--accent-dim);
+        border-radius: 8px;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 0.75rem;
+        outline: none;
+      }
+      .music-search-wrap input:focus {
+        border-color: var(--accent);
+      }
+      .music-results {
+        list-style: none;
+        margin-top: 0.35rem;
+        max-height: 9rem;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+      .music-result-row {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.3rem 0.4rem;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        background: rgba(56, 189, 248, 0.06);
+        transition: border-color 0.2s;
+      }
+      .music-result-row:hover {
+        border-color: var(--accent-dim);
+      }
+      .music-result-label {
+        flex: 1;
+        min-width: 0;
+        font-size: 0.72rem;
+        color: var(--text);
+        line-height: 1.25;
+      }
+      .music-result-actions {
+        display: flex;
+        flex-shrink: 0;
+        gap: 0.2rem;
+      }
+      .music-result-actions button {
+        padding: 0.2rem 0.4rem;
+        border: 1px solid var(--accent-dim);
+        border-radius: 5px;
+        background: var(--surface);
+        color: var(--accent);
+        font-size: 0.65rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+      }
+      .music-result-actions button:hover {
+        border-color: var(--accent);
+        background: rgba(56, 189, 248, 0.1);
+      }
+      .music-result-actions button.music-result-btn--queue {
+        color: var(--text-dim);
+        border-color: rgba(148, 163, 184, 0.45);
+      }
+      .music-result-actions button.music-result-btn--queue:hover {
+        color: var(--accent);
+        border-color: var(--accent-dim);
+      }
+
+      /* ---------- chat ---------- */
+      .chat {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .msg {
+        max-width: 75%;
+        padding: 0.65rem 1rem;
+        border-radius: var(--radius);
+        font-size: 0.9rem;
+        line-height: 1.5;
+        animation: fadeIn 0.25s ease;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      .msg.user {
+        align-self: flex-end;
+        background: var(--accent-dim);
+        border: 1px solid var(--accent);
+        color: var(--text);
+      }
+      .msg.assistant {
+        align-self: flex-start;
+        background: var(--surface-2);
+        border: 1px solid var(--accent-dim);
+      }
+      .msg .label {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--accent);
+        margin-bottom: 0.2rem;
+      }
+
+      /* ---------- input bar ---------- */
       .input-bar {
-        padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px) + clamp(2.75rem, 12vmin, 4.25rem));
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        padding: 0.75rem 1.25rem;
+        background: var(--surface);
+        border-top: 1px solid var(--accent-dim);
       }
-    }
-  </style>
-</head>
-<body>
 
-<header>
-  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-  </button>
-  <a class="logo" href="./index.html">PowerSleep</a>
-  <div class="header-actions">
-  </div>
-</header>
+      .input-bar input {
+        flex: 1;
+        padding: 0.55rem 0.85rem;
+        border: 1px solid var(--accent-dim);
+        border-radius: var(--radius);
+        background: var(--surface-2);
+        color: var(--text);
+        font-size: 0.9rem;
+        outline: none;
+        transition: border 0.2s;
+      }
+      .input-bar input:focus {
+        border-color: var(--accent);
+      }
 
-<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+      .mic-btn {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        border: 2px solid var(--accent-dim);
+        background: var(--surface-2);
+        color: var(--text);
+        font-size: 1.2rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        position: relative;
+      }
+      .mic-btn:hover {
+        border-color: var(--accent);
+        box-shadow: var(--glow);
+      }
+      .mic-btn.recording {
+        border-color: var(--danger);
+        background: rgba(248, 113, 113, 0.15);
+        animation: pulse 1.2s infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.4);
+        }
+        50% {
+          box-shadow: 0 0 0 10px rgba(248, 113, 113, 0);
+        }
+      }
 
-<div class="layout">
-  <!-- Sidebar: weather + calendar -->
-  <aside class="sidebar">
-    <button class="sidebar-close" id="sidebarClose" aria-label="Close sidebar">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
-    </button>
-    <div class="card" id="weatherCard">
-      <h3>Weather</h3>
-      <div id="weatherContent"><span class="no-items">Loading weather...</span></div>
-    </div>
-    <div class="card" id="musicCard">
-      <h3>Music</h3>
-      <div id="musicContent"><span class="no-items">Loading…</span></div>
-      <div class="music-controls-row" id="musicControls" aria-label="Playback controls">
-        <button type="button" class="music-icon-btn" id="musicPrevBtn" title="Previous" aria-label="Previous track">
-          <p class="music-prev">⏮</p>
+      .send-btn {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        border: 2px solid var(--accent-dim);
+        background: var(--surface-2);
+        color: var(--accent);
+        font-size: 1.1rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+      }
+      .send-btn:hover {
+        border-color: var(--accent);
+        background: var(--accent-dim);
+      }
+
+      .status-bar {
+        font-size: 0.7rem;
+        color: var(--text-dim);
+        padding: 0.25rem 1.25rem;
+        background: var(--surface);
+        text-align: center;
+      }
+
+      /* ---------- event creation form ---------- */
+      .add-event-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        width: 100%;
+        margin-top: 0.5rem;
+        padding: 0.4rem;
+        border: 1px dashed var(--accent-dim);
+        border-radius: var(--radius);
+        background: transparent;
+        color: var(--accent);
+        font-size: 0.75rem;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .add-event-btn:hover {
+        border-color: var(--accent);
+        background: rgba(56, 189, 248, 0.06);
+      }
+
+      .event-form {
+        margin-top: 0.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+      .event-form input[type="text"],
+      .event-form input[type="date"],
+      .event-form input[type="time"] {
+        padding: 0.35rem 0.5rem;
+        border: 1px solid var(--accent-dim);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 0.78rem;
+        outline: none;
+        transition: border 0.2s;
+      }
+      .event-form input:focus {
+        border-color: var(--accent);
+      }
+      .event-form .row {
+        display: flex;
+        gap: 0.35rem;
+      }
+      .event-form .row input {
+        flex: 1;
+        min-width: 0;
+      }
+      .event-form .checkbox-row {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.78rem;
+        color: var(--text-dim);
+      }
+      .event-form .checkbox-row input[type="checkbox"] {
+        accent-color: var(--accent);
+      }
+      .event-form-actions {
+        display: flex;
+        gap: 0.35rem;
+        margin-top: 0.15rem;
+      }
+      .event-form-actions button {
+        flex: 1;
+        padding: 0.35rem;
+        border: 1px solid var(--accent-dim);
+        border-radius: 6px;
+        font-size: 0.75rem;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .event-form-actions .save-btn {
+        background: var(--accent-dim);
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+      .event-form-actions .save-btn:hover {
+        background: var(--accent);
+        color: var(--bg);
+      }
+      .event-form-actions .cancel-btn {
+        background: transparent;
+        color: var(--text-dim);
+      }
+      .event-form-actions .cancel-btn:hover {
+        border-color: var(--text-dim);
+      }
+
+      /* dev toolbar */
+      #devToolbar {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 0.75rem;
+        background: #1a1a2e;
+        border-bottom: 1px solid #f59e0b44;
+        font-size: 0.72rem;
+      }
+      #devToolbar .dev-label {
+        font-weight: 700;
+        color: #f59e0b;
+        letter-spacing: 0.08em;
+      }
+      #devToolbar button {
+        padding: 0.25rem 0.6rem;
+        border: 1px solid #f59e0b44;
+        border-radius: 4px;
+        background: transparent;
+        color: #f59e0b;
+        font-size: 0.7rem;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      #devToolbar button:hover {
+        background: #f59e0b22;
+      }
+
+      /* ---------- sidebar toggle button ---------- */
+      .sidebar-toggle {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border: 1px solid var(--accent-dim);
+        border-radius: 8px;
+        background: var(--surface-2);
+        color: var(--text);
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: border-color 0.2s;
+      }
+      .sidebar-toggle:hover {
+        border-color: var(--accent);
+      }
+
+      .sidebar-close {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        align-self: flex-end;
+        width: 30px;
+        height: 30px;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--text-dim);
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: color 0.2s;
+      }
+      .sidebar-close:hover {
+        color: var(--text);
+      }
+
+      .sidebar-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 99;
+        background: rgba(0, 0, 0, 0.5);
+      }
+      .sidebar-backdrop.visible {
+        display: block;
+      }
+
+      /* ---------- responsive ---------- */
+      @media (max-width: 768px) {
+        /* iOS Safari: prefer svh so layout height matches visible area; fall back to dvh/vh. */
+        body {
+          height: 100vh;
+          height: 100dvh;
+          height: 100svh;
+        }
+        .sidebar-toggle {
+          display: flex;
+        }
+        .sidebar-close {
+          display: flex;
+        }
+        .logo {
+          flex: 1;
+          text-align: center;
+        }
+        .header-actions {
+          width: 36px;
+        }
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        .sidebar {
+          position: fixed;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          width: 280px;
+          z-index: 100;
+          grid-row: auto;
+          border-right: 1px solid var(--accent-dim);
+          transform: translateX(-100%);
+          transition: transform 0.25s ease;
+        }
+        .sidebar.open {
+          transform: translateX(0);
+        }
+        /* Keep the composer above Safari bottom chrome (URL bar can be ~44–83px) + home indicator. */
+        .input-bar {
+          padding-bottom: calc(
+            0.75rem + env(safe-area-inset-bottom, 0px) + clamp(2.75rem, 12vmin, 4.25rem)
+          );
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
+      <a class="logo" href="./index.html">PowerSleep</a>
+      <div class="header-actions"></div>
+    </header>
+
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <div class="layout">
+      <!-- Sidebar: weather + calendar -->
+      <aside class="sidebar">
+        <button class="sidebar-close" id="sidebarClose" aria-label="Close sidebar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="6" y1="6" x2="18" y2="18" />
+            <line x1="18" y1="6" x2="6" y2="18" />
+          </svg>
         </button>
-        <button type="button" class="music-icon-btn" id="musicPlayPauseBtn" title="Play or pause" aria-label="Play or pause">
-          <p class="music-pp-play">▶</p>
-          <p class="music-pp-pause">⏸</p>
-        </button>
-        <button type="button" class="music-icon-btn" id="musicNextBtn" title="Next" aria-label="Next track">
-          <p class="music-next">⏭</p>
-        </button>
-      </div>
-      <button type="button" class="music-web-btn" id="musicWebPlayerBtn">Play in this browser</button>
-      <p class="music-web-status" id="musicWebStatus"></p>
-      <div class="music-search-wrap">
-        <input type="search" id="musicSearchInput" placeholder="Search tracks…" autocomplete="off" />
-        <ul class="music-results" id="musicSearchResults" hidden></ul>
-      </div>
-    </div>
-    <div class="card" id="calendarCard">
-      <h3>Today's Schedule</h3>
-      <div id="calendarContent"><span class="no-items">Loading events...</span></div>
-      <div id="addEventArea">
-        <button class="add-event-btn" onclick="toggleEventForm()">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add Event
-        </button>
-        <div id="eventFormContainer" style="display:none">
-          <div class="event-form">
-            <input type="text" id="evSummary" placeholder="Event title" />
-            <input type="date" id="evDate" />
-            <label class="checkbox-row">
-              <input type="checkbox" id="evAllDay" onchange="toggleAllDayFields()" /> All day
-            </label>
-            <div class="row" id="evTimeRow">
-              <input type="time" id="evStart" />
-              <input type="time" id="evEnd" />
-            </div>
-            <div class="event-form-actions">
-              <button class="cancel-btn" onclick="cancelEventForm()">Cancel</button>
-              <button class="save-btn" id="evSaveBtn" onclick="submitEventForm()">Save</button>
+        <div class="card" id="weatherCard">
+          <h3>Weather</h3>
+          <div id="weatherContent"><span class="no-items">Loading weather...</span></div>
+        </div>
+        <div class="card" id="musicCard">
+          <h3>Music</h3>
+          <div id="musicContent"><span class="no-items">Loading…</span></div>
+          <div class="music-controls-row" id="musicControls" aria-label="Playback controls">
+            <button type="button" class="music-icon-btn" id="musicPrevBtn" title="Previous" aria-label="Previous track">
+              <p class="music-prev">⏮</p>
+            </button>
+            <button type="button" class="music-icon-btn" id="musicPlayPauseBtn" title="Play or pause" aria-label="Play or pause">
+              <p class="music-pp-play">▶</p>
+              <p class="music-pp-pause">⏸</p>
+            </button>
+            <button type="button" class="music-icon-btn" id="musicNextBtn" title="Next" aria-label="Next track">
+              <p class="music-next">⏭</p>
+            </button>
+          </div>
+          <button type="button" class="music-web-btn" id="musicWebPlayerBtn">Play in this browser</button>
+          <p class="music-web-status" id="musicWebStatus"></p>
+          <div class="music-search-wrap">
+            <input type="search" id="musicSearchInput" placeholder="Search tracks…" autocomplete="off" />
+            <ul class="music-results" id="musicSearchResults" hidden></ul>
+          </div>
+        </div>
+        <div class="card" id="calendarCard">
+          <h3>Today's Schedule</h3>
+          <div id="calendarContent"><span class="no-items">Loading events...</span></div>
+          <div id="addEventArea">
+            <button class="add-event-btn" onclick="toggleEventForm()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Add Event
+            </button>
+            <div id="eventFormContainer" style="display: none">
+              <div class="event-form">
+                <input type="text" id="evSummary" placeholder="Event title" />
+                <input type="date" id="evDate" />
+                <label class="checkbox-row"> <input type="checkbox" id="evAllDay" onchange="toggleAllDayFields()" /> All day </label>
+                <div class="row" id="evTimeRow">
+                  <input type="time" id="evStart" />
+                  <input type="time" id="evEnd" />
+                </div>
+                <div class="event-form-actions">
+                  <button class="cancel-btn" onclick="cancelEventForm()">Cancel</button>
+                  <button class="save-btn" id="evSaveBtn" onclick="submitEventForm()">Save</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+        <div class="card" id="smartHomeCard">
+          <h3>Smart home (demo)</h3>
+          <div id="smartHomeContent"><span class="no-items">Loading demo state…</span></div>
+        </div>
+      </aside>
+
+      <!-- Chat area -->
+      <section class="chat">
+        <div class="messages" id="messages">
+          <div class="msg assistant">
+            <div class="label">Jarvis</div>
+            Good evening. I'm Jarvis, your personal assistant. How may I help you today? You can type below or press the microphone to speak.
+          </div>
+        </div>
+        <div class="status-bar" id="status">Ready</div>
+        <div class="input-bar">
+          <input type="text" id="textInput" placeholder="Type a message..." autocomplete="off" />
+          <button class="mic-btn" id="micBtn" title="Hold or click to record">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="1" width="6" height="12" rx="3" />
+              <path d="M5 10a7 7 0 0 0 14 0" />
+              <line x1="12" y1="17" x2="12" y2="21" />
+              <line x1="8" y1="21" x2="16" y2="21" />
+            </svg>
+          </button>
+          <button class="send-btn" id="sendBtn" title="Send message" onclick="sendTextMessage()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+        </div>
+      </section>
     </div>
-    <div class="card" id="smartHomeCard">
-      <h3>Smart home (demo)</h3>
-      <div id="smartHomeContent"><span class="no-items">Loading demo state…</span></div>
-    </div>
-  </aside>
 
-  <!-- Chat area -->
-  <section class="chat">
-    <div class="messages" id="messages">
-      <div class="msg assistant">
-        <div class="label">Jarvis</div>
-        Good evening. I'm Jarvis, your personal assistant. How may I help you today? You can type below or press the microphone to speak.
-      </div>
-    </div>
-    <div class="status-bar" id="status">Ready</div>
-    <div class="input-bar">
-      <input type="text" id="textInput" placeholder="Type a message..." autocomplete="off" />
-      <button class="mic-btn" id="micBtn" title="Hold or click to record">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="1" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
-      </button>
-      <button class="send-btn" id="sendBtn" title="Send message" onclick="sendTextMessage()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      </button>
-    </div>
-  </section>
-</div>
+    <script src="./jarvis-accepted-functions.js"></script>
+    <script>
+      // ─── Config ───────────────────────────────────────────────────────────────────
+      //
+      // PUTER: Click "Sign in to Puter" in the header for TTS, STT, and LLM.
+      // GOOGLE CALENDAR: Handled server-side via service account (see server.mjs).
+      // WEATHER: Automatic via Open-Meteo. Falls back to Harrisonburg VA.
+      //
+      // ─── State ────────────────────────────────────────────────────────────────────
+      let conversationHistory = [];
+      let calendarEvents = [];
+      let weatherData = null;
+      let isRecording = false;
+      let mediaRecorder = null;
+      let audioChunks = [];
 
-<script src="./jarvis-accepted-functions.js"></script>
-<script>
-// ─── Config ───────────────────────────────────────────────────────────────────
-//
-// PUTER: Click "Sign in to Puter" in the header for TTS, STT, and LLM.
-// GOOGLE CALENDAR: Handled server-side via service account (see server.mjs).
-// WEATHER: Automatic via Open-Meteo. Falls back to Harrisonburg VA.
-//
-// ─── State ────────────────────────────────────────────────────────────────────
-let conversationHistory = [];
-let calendarEvents = [];
-let weatherData = null;
-let isRecording = false;
-let mediaRecorder = null;
-let audioChunks = [];
+      /** Injected from shared server state (GET ./api/state); merged into system prompt / context. */
+      let remotePersonality = "";
+      /** @type {{ devices: Array<{ id: string, name: string, on: boolean }> }} */
+      let remoteSmartHome = { devices: [] };
+      let lastDemoRevision = -1;
+      /** While true, skip GET ./api/state polls so optimistic smart-home UI is not overwritten before POST finishes. */
+      let smartHomeMutationPending = false;
 
-/** Injected from shared server state (GET ./api/state); merged into system prompt / context. */
-let remotePersonality = '';
-/** @type {{ devices: Array<{ id: string, name: string, on: boolean }> }} */
-let remoteSmartHome = { devices: [] };
-let lastDemoRevision = -1;
-/** While true, skip GET ./api/state polls so optimistic smart-home UI is not overwritten before POST finishes. */
-let smartHomeMutationPending = false;
+      /** One-line Spotify summary for the LLM (updated when the sidebar player refreshes). */
+      let spotifyContextHint = "";
 
-/** Always Blinds + Ambient lights; map legacy `desk` → blinds position (Up/Down). */
-function normalizeSmartHomeClient(rawDevices) {
-  if (!Array.isArray(rawDevices) || rawDevices.length === 0) {
-    return {
-      devices: [
-        { id: "blinds", name: "Blinds", on: false },
-        { id: "ambient", name: "Ambient lights", on: true },
-      ],
-    };
-  }
-  const map = new Map();
-  for (const d of rawDevices) {
-    if (d && d.id) map.set(String(d.id).toLowerCase(), d);
-  }
-  const desk = map.get("desk");
-  const blinds = map.get("blinds");
-  const ambient = map.get("ambient");
-  let blindsOn = false;
-  if (blinds) blindsOn = !!blinds.on;
-  else if (desk) blindsOn = !!desk.on;
-  let ambientOn = true;
-  if (ambient) ambientOn = !!ambient.on;
-  return {
-    devices: [
-      { id: "blinds", name: "Blinds", on: blindsOn },
-      { id: "ambient", name: "Ambient lights", on: ambientOn },
-    ],
-  };
-}
+      /** Always Blinds + Ambient lights; map legacy `desk` → blinds position (Up/Down). */
+      function normalizeSmartHomeClient(rawDevices) {
+        if (!Array.isArray(rawDevices) || rawDevices.length === 0) {
+          return {
+            devices: [
+              { id: "blinds", name: "Blinds", on: false },
+              { id: "ambient", name: "Ambient lights", on: true },
+            ],
+          };
+        }
+        const map = new Map();
+        for (const d of rawDevices) {
+          if (d && d.id) map.set(String(d.id).toLowerCase(), d);
+        }
+        const desk = map.get("desk");
+        const blinds = map.get("blinds");
+        const ambient = map.get("ambient");
+        let blindsOn = false;
+        if (blinds) blindsOn = !!blinds.on;
+        else if (desk) blindsOn = !!desk.on;
+        let ambientOn = true;
+        if (ambient) ambientOn = !!ambient.on;
+        return {
+          devices: [
+            { id: "blinds", name: "Blinds", on: blindsOn },
+            { id: "ambient", name: "Ambient lights", on: ambientOn },
+          ],
+        };
+      }
 
-const messagesEl = document.getElementById('messages');
-const statusEl   = document.getElementById('status');
-const textInput  = document.getElementById('textInput');
-const micBtn     = document.getElementById('micBtn');
+      const messagesEl = document.getElementById("messages");
+      const statusEl = document.getElementById("status");
+      const textInput = document.getElementById("textInput");
+      const micBtn = document.getElementById("micBtn");
 
-// ─── Puter Auth ───────────────────────────────────────────────────────────────
-async function handlePuterAuth() {
-  try {
-    setStatus('Signing in to Puter...');
-    await puter.auth.signIn();
-    document.getElementById('btnPuterAuth').classList.add('connected');
-    document.getElementById('btnPuterAuth').innerHTML = `
+      // ─── Puter Auth ───────────────────────────────────────────────────────────────
+      async function handlePuterAuth() {
+        try {
+          setStatus("Signing in to Puter...");
+          await puter.auth.signIn();
+          document.getElementById("btnPuterAuth").classList.add("connected");
+          document.getElementById("btnPuterAuth").innerHTML = `
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
       Puter Connected`;
-    setStatus('Puter connected');
-  } catch (e) {
-    setStatus('Puter sign-in failed: ' + e.message);
-  }
-}
+          setStatus("Puter connected");
+        } catch (e) {
+          setStatus("Puter sign-in failed: " + e.message);
+        }
+      }
 
-// ─── Google Calendar (server-side via service account) ────────────────────────
-async function fetchCalendarEvents() {
-  try {
-    const resp = await fetch('/api/calendar/events');
-    if (!resp.ok) {
-      console.warn('Calendar fetch returned', resp.status);
-      return;
-    }
-    const data = await resp.json();
-    calendarEvents = data.events || [];
-    renderCalendar();
-  } catch (e) {
-    console.warn('Calendar fetch failed', e);
-  }
-}
+      // ─── Google Calendar (server-side via service account) ────────────────────────
+      async function fetchCalendarEvents() {
+        try {
+          const resp = await fetch("/api/calendar/events");
+          if (!resp.ok) {
+            console.warn("Calendar fetch returned", resp.status);
+            return;
+          }
+          const data = await resp.json();
+          calendarEvents = data.events || [];
+          renderCalendar();
+        } catch (e) {
+          console.warn("Calendar fetch failed", e);
+        }
+      }
 
-function renderCalendar() {
-  const el = document.getElementById('calendarContent');
-  if (!calendarEvents.length) {
-    el.innerHTML = '<span class="no-items">No events today — enjoy your free time!</span>';
-    return;
-  }
-  el.innerHTML = '<ul class="event-list">' + calendarEvents.map(ev => {
-    const timeLabel = ev.allDay
-      ? 'All day'
-      : (ev.start ? new Date(ev.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
-    const idAttr = escapeHtml(ev.id || '');
-    return `<li>
-      <span class="event-info"><span class="event-time">${timeLabel}</span> <span class="event-summary">${escapeHtml(ev.summary || '(No title)')}</span></span>
+      function renderCalendar() {
+        const el = document.getElementById("calendarContent");
+        if (!calendarEvents.length) {
+          el.innerHTML = '<span class="no-items">No events today — enjoy your free time!</span>';
+          return;
+        }
+        el.innerHTML =
+          '<ul class="event-list">' +
+          calendarEvents
+            .map((ev) => {
+              const timeLabel = ev.allDay ? "All day" : ev.start ? new Date(ev.start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+              const idAttr = escapeHtml(ev.id || "");
+              return `<li>
+      <span class="event-info"><span class="event-time">${timeLabel}</span> <span class="event-summary">${escapeHtml(ev.summary || "(No title)")}</span></span>
       <span class="event-actions">
         <button title="Edit" onclick="startEditEvent('${idAttr}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
         <button class="del-btn" title="Delete" onclick="confirmDeleteEvent('${idAttr}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
       </span>
     </li>`;
-  }).join('') + '</ul>';
-}
-
-// ─── Event form (create + edit) ───────────────────────────────────────────────
-let editingEventId = null;
-
-function toggleAllDayFields() {
-  const allDay = document.getElementById('evAllDay').checked;
-  document.getElementById('evTimeRow').style.display = allDay ? 'none' : 'flex';
-}
-
-function openEventForm(prefill) {
-  const container = document.getElementById('eventFormContainer');
-  container.style.display = 'block';
-  const today = new Date().toISOString().slice(0, 10);
-  document.getElementById('evSummary').value = prefill?.summary || '';
-  document.getElementById('evDate').value = prefill?.date || today;
-  document.getElementById('evAllDay').checked = !!prefill?.allDay;
-  document.getElementById('evStart').value = prefill?.startTime || '';
-  document.getElementById('evEnd').value = prefill?.endTime || '';
-  toggleAllDayFields();
-  document.getElementById('evSaveBtn').textContent = prefill?.editId ? 'Update' : 'Save';
-  editingEventId = prefill?.editId || null;
-  document.getElementById('evSummary').focus();
-}
-
-function toggleEventForm() {
-  const container = document.getElementById('eventFormContainer');
-  if (container.style.display !== 'none') {
-    cancelEventForm();
-  } else {
-    openEventForm();
-  }
-}
-
-function cancelEventForm() {
-  document.getElementById('eventFormContainer').style.display = 'none';
-  editingEventId = null;
-  document.getElementById('evSaveBtn').textContent = 'Save';
-}
-
-function startEditEvent(eventId) {
-  const ev = calendarEvents.find(e => e.id === eventId);
-  if (!ev) return;
-  const prefill = { editId: eventId, summary: ev.summary, allDay: ev.allDay };
-  if (ev.allDay) {
-    prefill.date = ev.start;
-  } else if (ev.start) {
-    const d = new Date(ev.start);
-    prefill.date = ev.start.slice(0, 10);
-    prefill.startTime = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
-    if (ev.end) {
-      const de = new Date(ev.end);
-      prefill.endTime = de.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
-    }
-  }
-  openEventForm(prefill);
-}
-
-async function confirmDeleteEvent(eventId) {
-  if (!confirm('Delete this event?')) return;
-  try {
-    setStatus('Deleting event...');
-    const resp = await fetch(`/api/calendar/events/${encodeURIComponent(eventId)}`, { method: 'DELETE' });
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed');
-    }
-    await fetchCalendarEvents();
-    setStatus('Event deleted');
-  } catch (e) {
-    console.error('Delete event error:', e);
-    setStatus('Failed to delete event: ' + e.message);
-  }
-}
-
-function buildEventPayload() {
-  const summary = document.getElementById('evSummary').value.trim();
-  const date = document.getElementById('evDate').value;
-  const allDay = document.getElementById('evAllDay').checked;
-  if (!summary || !date) return null;
-  if (allDay) {
-    return { summary, allDay: true, startDate: date };
-  }
-  const startTime = document.getElementById('evStart').value;
-  const endTime = document.getElementById('evEnd').value;
-  if (!startTime || !endTime) return null;
-  return { summary, start: `${date}T${startTime}:00`, end: `${date}T${endTime}:00` };
-}
-
-async function submitEventForm() {
-  const payload = buildEventPayload();
-  if (!payload) {
-    alert('Please fill in all required fields.');
-    return;
-  }
-  try {
-    if (editingEventId) {
-      setStatus('Updating event...');
-      const resp = await fetch(`/api/calendar/events/${encodeURIComponent(editingEventId)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err.error || 'Failed');
+            })
+            .join("") +
+          "</ul>";
       }
-      setStatus('Event updated!');
-    } else {
-      setStatus('Creating event...');
-      const resp = await fetch('/api/calendar/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err.error || 'Failed');
+
+      // ─── Event form (create + edit) ───────────────────────────────────────────────
+      let editingEventId = null;
+
+      function toggleAllDayFields() {
+        const allDay = document.getElementById("evAllDay").checked;
+        document.getElementById("evTimeRow").style.display = allDay ? "none" : "flex";
       }
-      setStatus('Event created!');
-    }
-    cancelEventForm();
-    await fetchCalendarEvents();
-  } catch (e) {
-    console.error('Event form error:', e);
-    setStatus('Failed: ' + e.message);
-  }
-}
 
-async function createCalendarEvent(summary, startISO, endISO, description) {
-  const body = { summary, description };
-  if (startISO && !startISO.includes('T')) {
-    body.allDay = true;
-    body.startDate = startISO;
-    if (endISO && !endISO.includes('T')) body.endDate = endISO;
-  } else {
-    body.start = startISO;
-    body.end = endISO;
-  }
-  const resp = await fetch('/api/calendar/events', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err.error || 'Failed to create event');
-  }
-  await fetchCalendarEvents();
-  return resp.json();
-}
+      function openEventForm(prefill) {
+        const container = document.getElementById("eventFormContainer");
+        container.style.display = "block";
+        const today = new Date().toISOString().slice(0, 10);
+        document.getElementById("evSummary").value = prefill?.summary || "";
+        document.getElementById("evDate").value = prefill?.date || today;
+        document.getElementById("evAllDay").checked = !!prefill?.allDay;
+        document.getElementById("evStart").value = prefill?.startTime || "";
+        document.getElementById("evEnd").value = prefill?.endTime || "";
+        toggleAllDayFields();
+        document.getElementById("evSaveBtn").textContent = prefill?.editId ? "Update" : "Save";
+        editingEventId = prefill?.editId || null;
+        document.getElementById("evSummary").focus();
+      }
 
-async function deleteCalendarEvent(eventId) {
-  const resp = await fetch(`/api/calendar/events/${encodeURIComponent(eventId)}`, { method: 'DELETE' });
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err.error || 'Failed to delete event');
-  }
-  await fetchCalendarEvents();
-}
+      function toggleEventForm() {
+        const container = document.getElementById("eventFormContainer");
+        if (container.style.display !== "none") {
+          cancelEventForm();
+        } else {
+          openEventForm();
+        }
+      }
 
-async function updateCalendarEvent(eventId, fields) {
-  const resp = await fetch(`/api/calendar/events/${encodeURIComponent(eventId)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(fields),
-  });
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err.error || 'Failed to update event');
-  }
-  await fetchCalendarEvents();
-}
+      function cancelEventForm() {
+        document.getElementById("eventFormContainer").style.display = "none";
+        editingEventId = null;
+        document.getElementById("evSaveBtn").textContent = "Save";
+      }
 
-// ─── Weather (Open-Meteo, no API key) ────────────────────────────────────────
-async function fetchWeather() {
-  try {
-    const pos = await new Promise((res, rej) =>
-      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 })
-    );
-    const { latitude, longitude } = pos.coords;
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=1&daily=temperature_2m_max,temperature_2m_min`;
-    const resp = await fetch(url);
-    const data = await resp.json();
-    weatherData = data;
-    renderWeather(data);
-  } catch (e) {
-    console.warn('Weather fetch failed, trying fallback location', e);
-    await fetchWeatherFallback();
-  }
-}
+      function startEditEvent(eventId) {
+        const ev = calendarEvents.find((e) => e.id === eventId);
+        if (!ev) return;
+        const prefill = { editId: eventId, summary: ev.summary, allDay: ev.allDay };
+        if (ev.allDay) {
+          prefill.date = ev.start;
+        } else if (ev.start) {
+          const d = new Date(ev.start);
+          prefill.date = ev.start.slice(0, 10);
+          prefill.startTime = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+          if (ev.end) {
+            const de = new Date(ev.end);
+            prefill.endTime = de.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+          }
+        }
+        openEventForm(prefill);
+      }
 
-async function fetchWeatherFallback() {
-  // Fallback: Harrisonburg VA (JMU)
-  const url = 'https://api.open-meteo.com/v1/forecast?latitude=38.45&longitude=-78.87&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=1&daily=temperature_2m_max,temperature_2m_min';
-  try {
-    const resp = await fetch(url);
-    const data = await resp.json();
-    weatherData = data;
-    renderWeather(data);
-  } catch (e) {
-    document.getElementById('weatherContent').innerHTML = '<span class="no-items">Could not load weather</span>';
-  }
-}
+      async function confirmDeleteEvent(eventId) {
+        if (!confirm("Delete this event?")) return;
+        try {
+          setStatus("Deleting event...");
+          const resp = await fetch(`/api/calendar/events/${encodeURIComponent(eventId)}`, { method: "DELETE" });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error || "Failed");
+          }
+          await fetchCalendarEvents();
+          setStatus("Event deleted");
+        } catch (e) {
+          console.error("Delete event error:", e);
+          setStatus("Failed to delete event: " + e.message);
+        }
+      }
 
-function weatherCodeToDescription(code) {
-  const map = {
-    0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
-    45: 'Foggy', 48: 'Depositing rime fog',
-    51: 'Light drizzle', 53: 'Moderate drizzle', 55: 'Dense drizzle',
-    61: 'Slight rain', 63: 'Moderate rain', 65: 'Heavy rain',
-    71: 'Slight snow', 73: 'Moderate snow', 75: 'Heavy snow',
-    80: 'Slight rain showers', 81: 'Moderate rain showers', 82: 'Violent rain showers',
-    95: 'Thunderstorm', 96: 'Thunderstorm w/ slight hail', 99: 'Thunderstorm w/ heavy hail',
-  };
-  return map[code] || 'Unknown';
-}
+      function buildEventPayload() {
+        const summary = document.getElementById("evSummary").value.trim();
+        const date = document.getElementById("evDate").value;
+        const allDay = document.getElementById("evAllDay").checked;
+        if (!summary || !date) return null;
+        if (allDay) {
+          return { summary, allDay: true, startDate: date };
+        }
+        const startTime = document.getElementById("evStart").value;
+        const endTime = document.getElementById("evEnd").value;
+        if (!startTime || !endTime) return null;
+        return { summary, start: `${date}T${startTime}:00`, end: `${date}T${endTime}:00` };
+      }
 
-function weatherCodeToEmoji(code) {
-  if (code === 0) return '\u2600\uFE0F';
-  if (code <= 2) return '\u26C5';
-  if (code === 3) return '\u2601\uFE0F';
-  if (code <= 48) return '\uD83C\uDF2B\uFE0F';
-  if (code <= 55) return '\uD83C\uDF26\uFE0F';
-  if (code <= 65) return '\uD83C\uDF27\uFE0F';
-  if (code <= 75) return '\u2744\uFE0F';
-  if (code <= 82) return '\uD83C\uDF27\uFE0F';
-  return '\u26A1';
-}
+      async function submitEventForm() {
+        const payload = buildEventPayload();
+        if (!payload) {
+          alert("Please fill in all required fields.");
+          return;
+        }
+        try {
+          if (editingEventId) {
+            setStatus("Updating event...");
+            const resp = await fetch(`/api/calendar/events/${encodeURIComponent(editingEventId)}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!resp.ok) {
+              const err = await resp.json().catch(() => ({}));
+              throw new Error(err.error || "Failed");
+            }
+            setStatus("Event updated!");
+          } else {
+            setStatus("Creating event...");
+            const resp = await fetch("/api/calendar/events", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!resp.ok) {
+              const err = await resp.json().catch(() => ({}));
+              throw new Error(err.error || "Failed");
+            }
+            setStatus("Event created!");
+          }
+          cancelEventForm();
+          await fetchCalendarEvents();
+        } catch (e) {
+          console.error("Event form error:", e);
+          setStatus("Failed: " + e.message);
+        }
+      }
 
-function renderWeather(data) {
-  const c = data.current;
-  const d = data.daily;
-  document.getElementById('weatherContent').innerHTML = `
+      async function createCalendarEvent(summary, startISO, endISO, description) {
+        const body = { summary, description };
+        if (startISO && !startISO.includes("T")) {
+          body.allDay = true;
+          body.startDate = startISO;
+          if (endISO && !endISO.includes("T")) body.endDate = endISO;
+        } else {
+          body.start = startISO;
+          body.end = endISO;
+        }
+        const resp = await fetch("/api/calendar/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.error || "Failed to create event");
+        }
+        await fetchCalendarEvents();
+        return resp.json();
+      }
+
+      async function deleteCalendarEvent(eventId) {
+        const resp = await fetch(`/api/calendar/events/${encodeURIComponent(eventId)}`, { method: "DELETE" });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.error || "Failed to delete event");
+        }
+        await fetchCalendarEvents();
+      }
+
+      async function updateCalendarEvent(eventId, fields) {
+        const resp = await fetch(`/api/calendar/events/${encodeURIComponent(eventId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(fields),
+        });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.error || "Failed to update event");
+        }
+        await fetchCalendarEvents();
+      }
+
+      // ─── Weather (Open-Meteo, no API key) ────────────────────────────────────────
+      async function fetchWeather() {
+        try {
+          const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 }));
+          const { latitude, longitude } = pos.coords;
+          const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=1&daily=temperature_2m_max,temperature_2m_min`;
+          const resp = await fetch(url);
+          const data = await resp.json();
+          weatherData = data;
+          renderWeather(data);
+        } catch (e) {
+          console.warn("Weather fetch failed, trying fallback location", e);
+          await fetchWeatherFallback();
+        }
+      }
+
+      async function fetchWeatherFallback() {
+        // Fallback: Harrisonburg VA (JMU)
+        const url =
+          "https://api.open-meteo.com/v1/forecast?latitude=38.45&longitude=-78.87&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=1&daily=temperature_2m_max,temperature_2m_min";
+        try {
+          const resp = await fetch(url);
+          const data = await resp.json();
+          weatherData = data;
+          renderWeather(data);
+        } catch (e) {
+          document.getElementById("weatherContent").innerHTML = '<span class="no-items">Could not load weather</span>';
+        }
+      }
+
+      function weatherCodeToDescription(code) {
+        const map = {
+          0: "Clear sky",
+          1: "Mainly clear",
+          2: "Partly cloudy",
+          3: "Overcast",
+          45: "Foggy",
+          48: "Depositing rime fog",
+          51: "Light drizzle",
+          53: "Moderate drizzle",
+          55: "Dense drizzle",
+          61: "Slight rain",
+          63: "Moderate rain",
+          65: "Heavy rain",
+          71: "Slight snow",
+          73: "Moderate snow",
+          75: "Heavy snow",
+          80: "Slight rain showers",
+          81: "Moderate rain showers",
+          82: "Violent rain showers",
+          95: "Thunderstorm",
+          96: "Thunderstorm w/ slight hail",
+          99: "Thunderstorm w/ heavy hail",
+        };
+        return map[code] || "Unknown";
+      }
+
+      function weatherCodeToEmoji(code) {
+        if (code === 0) return "\u2600\uFE0F";
+        if (code <= 2) return "\u26C5";
+        if (code === 3) return "\u2601\uFE0F";
+        if (code <= 48) return "\uD83C\uDF2B\uFE0F";
+        if (code <= 55) return "\uD83C\uDF26\uFE0F";
+        if (code <= 65) return "\uD83C\uDF27\uFE0F";
+        if (code <= 75) return "\u2744\uFE0F";
+        if (code <= 82) return "\uD83C\uDF27\uFE0F";
+        return "\u26A1";
+      }
+
+      function renderWeather(data) {
+        const c = data.current;
+        const d = data.daily;
+        document.getElementById("weatherContent").innerHTML = `
     <div class="weather-now">
       <div style="font-size:2.2rem">${weatherCodeToEmoji(c.weather_code)}</div>
       <div>
@@ -1105,941 +1368,1144 @@ function renderWeather(data) {
       Wind ${Math.round(c.wind_speed_10m)} mph<br>
       Hi ${Math.round(d.temperature_2m_max[0])}\u00B0 / Lo ${Math.round(d.temperature_2m_min[0])}\u00B0
     </div>`;
-}
-
-// ─── Context builder for LLM ─────────────────────────────────────────────────
-function buildContextString() {
-  const parts = [];
-  const now = new Date();
-  parts.push(`Current date/time: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
-
-  if (weatherData) {
-    const c = weatherData.current;
-    const d = weatherData.daily;
-    parts.push(`Weather: ${weatherCodeToDescription(c.weather_code)}, ${Math.round(c.temperature_2m)}\u00B0F (feels like ${Math.round(c.apparent_temperature)}\u00B0F). Humidity ${c.relative_humidity_2m}%, wind ${Math.round(c.wind_speed_10m)} mph. High ${Math.round(d.temperature_2m_max[0])}\u00B0F, Low ${Math.round(d.temperature_2m_min[0])}\u00B0F.`);
-  }
-
-  if (calendarEvents.length) {
-    const evStr = calendarEvents.map(ev => {
-      let timeRange;
-      if (ev.allDay) {
-        timeRange = 'All day';
-      } else {
-        const start = ev.start ? new Date(ev.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-        const end = ev.end ? new Date(ev.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-        timeRange = start + (end ? ' to ' + end : '');
-      }
-      return `- [id:${ev.id}] ${timeRange}: ${ev.summary || '(No title)'}`;
-    }).join('\n');
-    parts.push(`Today's calendar events:\n${evStr}`);
-  } else {
-    parts.push('Calendar: No events today.');
-  }
-
-  if (remoteSmartHome.devices && remoteSmartHome.devices.length) {
-    const lines = remoteSmartHome.devices.map((d) => {
-      if (isBlindsDevice(d)) return `- ${d.name}: ${d.on ? 'up' : 'down'}`;
-      return `- ${d.name}: ${d.on ? 'on' : 'off'}`;
-    });
-    parts.push(`Smart home (demo):\n${lines.join('\n')}`);
-  }
-
-  return parts.join('\n\n');
-}
-
-let systemPromptCache = null;
-let systemPromptPromise = null;
-function getSystemPrompt() {
-  if (systemPromptCache != null) return Promise.resolve(systemPromptCache);
-  if (!systemPromptPromise) {
-    systemPromptPromise = fetch(`./jarvis-system-prompt.md?cb=${Date.now()}`)
-      .then((r) => {
-        if (!r.ok) throw new Error('Failed to load jarvis-system-prompt.md');
-        return r.text();
-      })
-      .then((t) => {
-        systemPromptCache = t.trim();
-        return systemPromptCache;
-      });
-  }
-  return systemPromptPromise;
-}
-
-function invalidateSystemPrompt() {
-  systemPromptCache = null;
-  systemPromptPromise = null;
-}
-
-function postChatMessage(role, content) {
-  fetch('./api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ role, content }),
-  }).catch((e) => console.warn('Failed to sync chat message to server', e));
-}
-
-function normalizeAssistantContent(content) {
-  if (content == null) return '';
-  if (typeof content === 'string') return content.trim();
-  if (Array.isArray(content)) {
-    return content
-      .filter((b) => b && (b.type === 'text' || b.text))
-      .map((b) => (typeof b.text === 'string' ? b.text : ''))
-      .join('')
-      .trim();
-  }
-  return String(content).trim();
-}
-
-async function dispatchJarvisTool(name, args) {
-  if (!args || typeof args !== 'object') {
-    throw new Error('Tool arguments must be an object.');
-  }
-  switch (name) {
-    case 'create_calendar_event':
-      await executeJarvisAction({
-        type: 'create_event',
-        summary: args.summary,
-        date: args.date,
-        allDay: args.allDay,
-        endDate: args.endDate,
-        startTime: args.startTime,
-        endTime: args.endTime,
-        description: args.description,
-      });
-      return;
-    case 'delete_calendar_event':
-      await executeJarvisAction({ type: 'delete_event', id: args.id });
-      return;
-    case 'edit_calendar_event':
-      await executeJarvisAction({
-        type: 'edit_event',
-        id: args.id,
-        summary: args.summary,
-        description: args.description,
-        allDay: args.allDay,
-        date: args.date,
-        endDate: args.endDate,
-        startTime: args.startTime,
-        endTime: args.endTime,
-      });
-      return;
-    default:
-      throw new Error('Unknown tool: ' + name);
-  }
-}
-
-/**
- * Multi-turn Puter function calling: run tools until the model returns a text reply.
- * Mutates `messages` with assistant + tool messages between rounds.
- */
-async function completeJarvisWithTools(messages, chatOptions) {
-  const maxToolRounds = 10;
-  let response = await puter.ai.chat(messages, chatOptions);
-
-  for (let round = 0; round < maxToolRounds; round++) {
-    const msg = response && response.message;
-    if (!msg) break;
-
-    const toolCalls = msg.tool_calls;
-    if (!Array.isArray(toolCalls) || toolCalls.length === 0) {
-      const text = normalizeAssistantContent(msg.content);
-      if (text) return text;
-      return "I'm not sure how to answer that — could you rephrase?";
-    }
-
-    messages.push({
-      role: 'assistant',
-      content: msg.content == null ? '' : msg.content,
-      tool_calls: toolCalls,
-    });
-
-    for (const tc of toolCalls) {
-      const toolCallId = tc.id;
-      const fnName = tc.function && tc.function.name;
-      let resultPayload;
-      try {
-        const rawArgs = (tc.function && tc.function.arguments) || '{}';
-        const args = JSON.parse(rawArgs);
-        await dispatchJarvisTool(fnName, args);
-        resultPayload = { ok: true };
-      } catch (err) {
-        console.error('Jarvis tool error:', fnName, err);
-        resultPayload = { ok: false, error: err.message || String(err) };
-      }
-      messages.push({
-        role: 'tool',
-        tool_call_id: toolCallId,
-        content: JSON.stringify(resultPayload),
-      });
-    }
-
-    response = await puter.ai.chat(messages, chatOptions);
-  }
-
-  return 'My apologies — that took too many steps. Please try a simpler request.';
-}
-
-async function executeJarvisAction(action) {
-  switch (action.type) {
-    case 'delete_event': {
-      if (typeof action.id !== 'string' || !action.id.trim()) {
-        throw new Error('delete_event requires an id.');
-      }
-      await deleteCalendarEvent(action.id);
-      return;
-    }
-    case 'edit_event': {
-      if (typeof action.id !== 'string' || !action.id.trim()) {
-        throw new Error('edit_event requires an id.');
       }
 
-      const patch = {};
-      if (action.summary !== undefined) patch.summary = action.summary;
-      if (action.description !== undefined) patch.description = action.description;
+      // ─── Context builder for LLM ─────────────────────────────────────────────────
+      function buildContextString() {
+        const parts = [];
+        const now = new Date();
+        parts.push(`Current date/time: ${now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
 
-      if (action.allDay) {
-        if (typeof action.date !== 'string' || !action.date.trim()) {
-          throw new Error('All-day edit_event requires a date.');
+        if (weatherData) {
+          const c = weatherData.current;
+          const d = weatherData.daily;
+          parts.push(
+            `Weather: ${weatherCodeToDescription(c.weather_code)}, ${Math.round(c.temperature_2m)}\u00B0F (feels like ${Math.round(c.apparent_temperature)}\u00B0F). Humidity ${c.relative_humidity_2m}%, wind ${Math.round(c.wind_speed_10m)} mph. High ${Math.round(d.temperature_2m_max[0])}\u00B0F, Low ${Math.round(d.temperature_2m_min[0])}\u00B0F.`,
+          );
         }
-        patch.allDay = true;
-        patch.startDate = action.date;
-        if (action.endDate !== undefined) patch.endDate = action.endDate;
-      } else {
-        const hasTimedFields = action.date !== undefined || action.startTime !== undefined || action.endTime !== undefined;
-        if (hasTimedFields) {
-          if (
-            typeof action.date !== 'string' ||
-            typeof action.startTime !== 'string' ||
-            typeof action.endTime !== 'string'
-          ) {
-            throw new Error('Timed edit_event requires date, startTime, and endTime.');
+
+        if (calendarEvents.length) {
+          const evStr = calendarEvents
+            .map((ev) => {
+              let timeRange;
+              if (ev.allDay) {
+                timeRange = "All day";
+              } else {
+                const start = ev.start ? new Date(ev.start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+                const end = ev.end ? new Date(ev.end).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+                timeRange = start + (end ? " to " + end : "");
+              }
+              return `- [id:${ev.id}] ${timeRange}: ${ev.summary || "(No title)"}`;
+            })
+            .join("\n");
+          parts.push(`Today's calendar events:\n${evStr}`);
+        } else {
+          parts.push("Calendar: No events today.");
+        }
+
+        if (remoteSmartHome.devices && remoteSmartHome.devices.length) {
+          const lines = remoteSmartHome.devices.map((d) => {
+            if (isBlindsDevice(d)) return `- ${d.name}: ${d.on ? "up" : "down"}`;
+            return `- ${d.name}: ${d.on ? "on" : "off"}`;
+          });
+          parts.push(`Smart home (demo):\n${lines.join("\n")}`);
+        }
+
+        if (spotifyContextHint && spotifyContextHint.trim()) {
+          parts.push(spotifyContextHint.trim());
+        }
+
+        return parts.join("\n\n");
+      }
+
+      let systemPromptCache = null;
+      let systemPromptPromise = null;
+      function getSystemPrompt() {
+        if (systemPromptCache != null) return Promise.resolve(systemPromptCache);
+        if (!systemPromptPromise) {
+          systemPromptPromise = fetch(`./jarvis-system-prompt.md?cb=${Date.now()}`)
+            .then((r) => {
+              if (!r.ok) throw new Error("Failed to load jarvis-system-prompt.md");
+              return r.text();
+            })
+            .then((t) => {
+              systemPromptCache = t.trim();
+              return systemPromptCache;
+            });
+        }
+        return systemPromptPromise;
+      }
+
+      function invalidateSystemPrompt() {
+        systemPromptCache = null;
+        systemPromptPromise = null;
+      }
+
+      function postChatMessage(role, content) {
+        fetch("./api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role, content }),
+        }).catch((e) => console.warn("Failed to sync chat message to server", e));
+      }
+
+      function normalizeAssistantContent(content) {
+        if (content == null) return "";
+        if (typeof content === "string") return content.trim();
+        if (Array.isArray(content)) {
+          return content
+            .filter((b) => b && (b.type === "text" || b.text))
+            .map((b) => (typeof b.text === "string" ? b.text : ""))
+            .join("")
+            .trim();
+        }
+        return String(content).trim();
+      }
+
+      async function dispatchJarvisTool(name, args) {
+        if (!args || typeof args !== "object") {
+          throw new Error("Tool arguments must be an object.");
+        }
+        switch (name) {
+          case "create_calendar_event":
+            await executeJarvisAction({
+              type: "create_event",
+              summary: args.summary,
+              date: args.date,
+              allDay: args.allDay,
+              endDate: args.endDate,
+              startTime: args.startTime,
+              endTime: args.endTime,
+              description: args.description,
+            });
+            return { ok: true };
+          case "delete_calendar_event":
+            await executeJarvisAction({ type: "delete_event", id: args.id });
+            return { ok: true };
+          case "edit_calendar_event":
+            await executeJarvisAction({
+              type: "edit_event",
+              id: args.id,
+              summary: args.summary,
+              description: args.description,
+              allDay: args.allDay,
+              date: args.date,
+              endDate: args.endDate,
+              startTime: args.startTime,
+              endTime: args.endTime,
+            });
+            return { ok: true };
+          case "set_demo_smart_home_device": {
+            const dev = args.device;
+            const on = args.on;
+            if (dev !== "ambient" && dev !== "blinds") {
+              throw new Error("device must be ambient or blinds.");
+            }
+            if (typeof on !== "boolean") {
+              throw new Error("on must be a boolean.");
+            }
+            const r = await fetch("./api/smart-home/set", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: dev, on }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) {
+              throw new Error(data.error || "Smart home update failed.");
+            }
+            if (data.smartHome && Array.isArray(data.smartHome.devices)) {
+              remoteSmartHome = normalizeSmartHomeClient(data.smartHome.devices);
+              renderSmartHome();
+            }
+            return { ok: true, device: dev, on };
           }
-          patch.start = `${action.date}T${action.startTime}:00`;
-          patch.end = `${action.date}T${action.endTime}:00`;
+          case "spotify_play":
+            await spotifyResumePlayback();
+            return { ok: true, action: "play" };
+          case "spotify_pause":
+            await spotifyPausePlayback();
+            return { ok: true, action: "pause" };
+          case "spotify_skip_next":
+            await spotifySkipNextStrict();
+            return { ok: true, action: "next" };
+          case "spotify_skip_previous":
+            await spotifySkipPreviousStrict();
+            return { ok: true, action: "previous" };
+          case "spotify_play_track": {
+            const t = await spotifySearchFirstTrack(args.query);
+            await spotifyPlayUriStrict(t.uri);
+            const label = trackLabelFromSpotifyItem(t);
+            return { ok: true, action: "play_track", track: label };
+          }
+          case "spotify_queue_track": {
+            const t = await spotifySearchFirstTrack(args.query);
+            await spotifyQueueUriStrict(t.uri);
+            const label = trackLabelFromSpotifyItem(t);
+            return { ok: true, action: "queue_track", track: label };
+          }
+          default:
+            throw new Error("Unknown tool: " + name);
         }
       }
 
-      await updateCalendarEvent(action.id, patch);
-      return;
-    }
-    case 'create_event': {
-      if (typeof action.summary !== 'string' || !action.summary.trim()) {
-        throw new Error('create_event requires a summary.');
+      /**
+       * Multi-turn Puter function calling: run tools until the model returns a text reply.
+       * Mutates `messages` with assistant + tool messages between rounds.
+       */
+      async function completeJarvisWithTools(messages, chatOptions) {
+        const maxToolRounds = 10;
+        let response = await puter.ai.chat(messages, chatOptions);
+
+        for (let round = 0; round < maxToolRounds; round++) {
+          const msg = response && response.message;
+          if (!msg) break;
+
+          const toolCalls = msg.tool_calls;
+          if (!Array.isArray(toolCalls) || toolCalls.length === 0) {
+            const text = normalizeAssistantContent(msg.content);
+            if (text) return text;
+            return "I'm not sure how to answer that — could you rephrase?";
+          }
+
+          messages.push({
+            role: "assistant",
+            content: msg.content == null ? "" : msg.content,
+            tool_calls: toolCalls,
+          });
+
+          for (const tc of toolCalls) {
+            const toolCallId = tc.id;
+            const fnName = tc.function && tc.function.name;
+            let resultPayload;
+            try {
+              const rawArgs = (tc.function && tc.function.arguments) || "{}";
+              const args = JSON.parse(rawArgs);
+              const out = await dispatchJarvisTool(fnName, args);
+              resultPayload = out && typeof out === "object" ? out : { ok: true };
+            } catch (err) {
+              console.error("Jarvis tool error:", fnName, err);
+              resultPayload = { ok: false, error: err.message || String(err) };
+            }
+            messages.push({
+              role: "tool",
+              tool_call_id: toolCallId,
+              content: JSON.stringify(resultPayload),
+            });
+          }
+
+          response = await puter.ai.chat(messages, chatOptions);
+        }
+
+        return "My apologies — that took too many steps. Please try a simpler request.";
       }
-      if (typeof action.date !== 'string' || !action.date.trim()) {
-        throw new Error('create_event requires a date.');
+
+      async function executeJarvisAction(action) {
+        switch (action.type) {
+          case "delete_event": {
+            if (typeof action.id !== "string" || !action.id.trim()) {
+              throw new Error("delete_event requires an id.");
+            }
+            await deleteCalendarEvent(action.id);
+            return;
+          }
+          case "edit_event": {
+            if (typeof action.id !== "string" || !action.id.trim()) {
+              throw new Error("edit_event requires an id.");
+            }
+
+            const patch = {};
+            if (action.summary !== undefined) patch.summary = action.summary;
+            if (action.description !== undefined) patch.description = action.description;
+
+            if (action.allDay) {
+              if (typeof action.date !== "string" || !action.date.trim()) {
+                throw new Error("All-day edit_event requires a date.");
+              }
+              patch.allDay = true;
+              patch.startDate = action.date;
+              if (action.endDate !== undefined) patch.endDate = action.endDate;
+            } else {
+              const hasTimedFields = action.date !== undefined || action.startTime !== undefined || action.endTime !== undefined;
+              if (hasTimedFields) {
+                if (typeof action.date !== "string" || typeof action.startTime !== "string" || typeof action.endTime !== "string") {
+                  throw new Error("Timed edit_event requires date, startTime, and endTime.");
+                }
+                patch.start = `${action.date}T${action.startTime}:00`;
+                patch.end = `${action.date}T${action.endTime}:00`;
+              }
+            }
+
+            await updateCalendarEvent(action.id, patch);
+            return;
+          }
+          case "create_event": {
+            if (typeof action.summary !== "string" || !action.summary.trim()) {
+              throw new Error("create_event requires a summary.");
+            }
+            if (typeof action.date !== "string" || !action.date.trim()) {
+              throw new Error("create_event requires a date.");
+            }
+
+            if (action.allDay) {
+              await createCalendarEvent(action.summary, action.date, action.endDate, action.description);
+              return;
+            }
+
+            if (typeof action.startTime !== "string" || typeof action.endTime !== "string") {
+              throw new Error("Timed create_event requires startTime and endTime.");
+            }
+
+            const startISO = `${action.date}T${action.startTime}:00`;
+            const endISO = `${action.date}T${action.endTime}:00`;
+            await createCalendarEvent(action.summary, startISO, endISO, action.description);
+            return;
+          }
+          default:
+            console.warn("Unknown Jarvis action type:", action);
+        }
       }
 
-      if (action.allDay) {
-        await createCalendarEvent(action.summary, action.date, action.endDate, action.description);
-        return;
+      // ─── Chat / LLM ───────────────────────────────────────────────────────────────
+      async function sendToJarvis(userText) {
+        addMessage("user", userText);
+        postChatMessage("user", userText);
+        setStatus("Jarvis is thinking...");
+
+        let systemPrompt;
+        try {
+          systemPrompt = await getSystemPrompt();
+        } catch (e) {
+          console.error("System prompt load failed:", e);
+          setStatus("Error — could not load system prompt");
+          const fallback = "Configuration error: jarvis-system-prompt.md could not be loaded.";
+          addMessage("assistant", fallback);
+          postChatMessage("assistant", fallback);
+          return;
+        }
+
+        const contextBlock = buildContextString();
+        const demoBlock = remotePersonality.trim() ? "\n\n--- DEMO FEED / PERSONALITY ---\n" + remotePersonality.trim() : "";
+
+        conversationHistory.push({ role: "user", content: userText });
+
+        const messages = [{ role: "system", content: systemPrompt + demoBlock + "\n\n--- LIVE CONTEXT ---\n" + contextBlock }, ...conversationHistory.slice(-20)];
+
+        if (typeof JARVIS_TOOLS === "undefined" || !Array.isArray(JARVIS_TOOLS)) {
+          setStatus("Error — tool definitions missing");
+          const errMsg = "Configuration error: jarvis-accepted-functions.js did not load.";
+          conversationHistory.push({ role: "assistant", content: errMsg });
+          addMessage("assistant", errMsg);
+          postChatMessage("assistant", errMsg);
+          return;
+        }
+
+        // const chatOptions = { model: 'gpt-4o-mini', stream: false, tools: JARVIS_TOOLS };
+        const chatOptions = { model: "openai/gpt-5-nano", stream: false, tools: JARVIS_TOOLS };
+
+        try {
+          const reply = await completeJarvisWithTools(messages, chatOptions);
+          conversationHistory.push({ role: "assistant", content: reply });
+          addMessage("assistant", reply);
+          postChatMessage("assistant", reply);
+          setStatus("Speaking...");
+          await speakText(reply);
+          setStatus("Ready");
+        } catch (e) {
+          console.error("LLM error:", e);
+          const fallback = "My apologies, I'm having trouble reaching the AI service. Check your network or try again.";
+          addMessage("assistant", fallback);
+          postChatMessage("assistant", fallback);
+          setStatus("Error — AI unavailable");
+        }
       }
 
-      if (typeof action.startTime !== 'string' || typeof action.endTime !== 'string') {
-        throw new Error('Timed create_event requires startTime and endTime.');
+      // ─── TTS ──────────────────────────────────────────────────────────────────────
+      async function speakText(text) {
+        try {
+          const audio = await puter.ai.txt2speech(text, {
+            voice: "Matthew",
+            engine: "neural",
+          });
+          return new Promise((resolve) => {
+            audio.onended = resolve;
+            audio.onerror = resolve;
+            audio.play().catch(resolve);
+          });
+        } catch (e) {
+          console.warn("TTS error, falling back to browser speech synthesis:", e);
+          return new Promise((resolve) => {
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.rate = 1.05;
+            utter.onend = resolve;
+            utter.onerror = resolve;
+            speechSynthesis.speak(utter);
+          });
+        }
       }
 
-      const startISO = `${action.date}T${action.startTime}:00`;
-      const endISO = `${action.date}T${action.endTime}:00`;
-      await createCalendarEvent(action.summary, startISO, endISO, action.description);
-      return;
-    }
-    default:
-      console.warn('Unknown Jarvis action type:', action);
-  }
-}
+      // ─── STT (mic recording) ─────────────────────────────────────────────────────
+      async function startRecording() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setStatus("Microphone requires an HTTPS connection");
+          return;
+        }
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream, { mimeType: getSupportedMime() });
+          audioChunks = [];
 
-// ─── Chat / LLM ───────────────────────────────────────────────────────────────
-async function sendToJarvis(userText) {
-  addMessage('user', userText);
-  postChatMessage('user', userText);
-  setStatus('Jarvis is thinking...');
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+          };
 
-  let systemPrompt;
-  try {
-    systemPrompt = await getSystemPrompt();
-  } catch (e) {
-    console.error('System prompt load failed:', e);
-    setStatus('Error — could not load system prompt');
-    const fallback = 'Configuration error: jarvis-system-prompt.md could not be loaded.';
-    addMessage('assistant', fallback);
-    postChatMessage('assistant', fallback);
-    return;
-  }
+          mediaRecorder.onstop = async () => {
+            stream.getTracks().forEach((t) => t.stop());
+            if (!audioChunks.length) {
+              setStatus("No audio captured");
+              return;
+            }
+            const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+            await transcribeAudio(blob);
+          };
 
-  const contextBlock = buildContextString();
-  const demoBlock = remotePersonality.trim()
-    ? '\n\n--- DEMO FEED / PERSONALITY ---\n' + remotePersonality.trim()
-    : '';
-
-  conversationHistory.push({ role: 'user', content: userText });
-
-  const messages = [
-    { role: 'system', content: systemPrompt + demoBlock + '\n\n--- LIVE CONTEXT ---\n' + contextBlock },
-    ...conversationHistory.slice(-20),
-  ];
-
-  if (typeof JARVIS_TOOLS === 'undefined' || !Array.isArray(JARVIS_TOOLS)) {
-    setStatus('Error — tool definitions missing');
-    const errMsg = 'Configuration error: jarvis-accepted-functions.js did not load.';
-    conversationHistory.push({ role: 'assistant', content: errMsg });
-    addMessage('assistant', errMsg);
-    postChatMessage('assistant', errMsg);
-    return;
-  }
-
-  // const chatOptions = { model: 'gpt-4o-mini', stream: false, tools: JARVIS_TOOLS };
-  const chatOptions = { stream: false, tools: JARVIS_TOOLS };
-
-  try {
-    const reply = await completeJarvisWithTools(messages, chatOptions);
-    conversationHistory.push({ role: 'assistant', content: reply });
-    addMessage('assistant', reply);
-    postChatMessage('assistant', reply);
-    setStatus('Speaking...');
-    await speakText(reply);
-    setStatus('Ready');
-  } catch (e) {
-    console.error('LLM error:', e);
-    const fallback = "My apologies, I'm having trouble reaching the AI service. Check your network or try again.";
-    addMessage('assistant', fallback);
-    postChatMessage('assistant', fallback);
-    setStatus('Error — AI unavailable');
-  }
-}
-
-// ─── TTS ──────────────────────────────────────────────────────────────────────
-async function speakText(text) {
-  try {
-    const audio = await puter.ai.txt2speech(text, {
-      voice: 'Matthew',
-      engine: 'neural',
-    });
-    return new Promise(resolve => {
-      audio.onended = resolve;
-      audio.onerror = resolve;
-      audio.play().catch(resolve);
-    });
-  } catch (e) {
-    console.warn('TTS error, falling back to browser speech synthesis:', e);
-    return new Promise(resolve => {
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.rate = 1.05;
-      utter.onend = resolve;
-      utter.onerror = resolve;
-      speechSynthesis.speak(utter);
-    });
-  }
-}
-
-// ─── STT (mic recording) ─────────────────────────────────────────────────────
-async function startRecording() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    setStatus('Microphone requires an HTTPS connection');
-    return;
-  }
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream, { mimeType: getSupportedMime() });
-    audioChunks = [];
-
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) audioChunks.push(e.data);
-    };
-
-    mediaRecorder.onstop = async () => {
-      stream.getTracks().forEach(t => t.stop());
-      if (!audioChunks.length) { setStatus('No audio captured'); return; }
-      const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
-      await transcribeAudio(blob);
-    };
-
-    mediaRecorder.start();
-    isRecording = true;
-    micBtn.classList.add('recording');
-    setStatus('Listening...');
-  } catch (e) {
-    console.error('Mic error:', e);
-    setStatus('Microphone access denied');
-  }
-}
-
-function getSupportedMime() {
-  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
-  for (const mime of candidates) {
-    if (MediaRecorder.isTypeSupported(mime)) return mime;
-  }
-  return '';
-}
-
-function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
-  }
-  isRecording = false;
-  micBtn.classList.remove('recording');
-}
-
-async function transcribeAudio(blob) {
-  setStatus('Transcribing...');
-  try {
-    const result = await puter.ai.speech2txt(blob);
-    const text = (typeof result === 'string' ? result : result?.text || '').trim();
-    if (text) {
-      await sendToJarvis(text);
-    } else {
-      setStatus("I didn't catch that. Try again?");
-    }
-  } catch (e) {
-    console.error('STT error:', e);
-    setStatus('Transcription failed — try again');
-  }
-}
-
-// ─── UI helpers ───────────────────────────────────────────────────────────────
-function addMessage(role, text) {
-  const div = document.createElement('div');
-  div.className = 'msg ' + role;
-  div.innerHTML = `<div class="label">${role === 'user' ? 'You' : 'Jarvis'}</div>${escapeHtml(text)}`;
-  messagesEl.appendChild(div);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-}
-
-function escapeHtml(str) {
-  const d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
-}
-
-function setStatus(msg) {
-  statusEl.textContent = msg;
-}
-
-// ─── Spotify music (sidebar) ─────────────────────────────────────────────────
-let spotifyConfigured = false;
-let spotifyWebDeviceId = null;
-let spotifyWebPlayer = null;
-let spotifyWebConnecting = false;
-let spotifySearchTimer = null;
-
-function spotifyDevQuery() {
-  return spotifyWebDeviceId ? '?device_id=' + encodeURIComponent(spotifyWebDeviceId) : '';
-}
-
-function updatePlayPauseIcon(isPlaying) {
-  const root = document.getElementById('musicPlayPauseBtn');
-  if (!root) return;
-  const playIc = root.querySelector('.music-pp-play');
-  const pauseIc = root.querySelector('.music-pp-pause');
-  if (!playIc || !pauseIc) return;
-  playIc.style.display = isPlaying ? 'none' : 'block';
-  pauseIc.style.display = isPlaying ? 'block' : 'none';
-}
-
-function renderSpotifyUnavailable() {
-  spotifyConfigured = false;
-  spotifyWebDeviceId = null;
-  const ctrl = document.getElementById('musicControls');
-  const web = document.getElementById('musicWebPlayerBtn');
-  const ws = document.getElementById('musicWebStatus');
-  const wrap = document.querySelector('#musicCard .music-search-wrap');
-  if (ctrl) ctrl.classList.remove('visible');
-  if (web) web.style.display = 'none';
-  if (ws) ws.textContent = '';
-  if (wrap) wrap.style.display = 'none';
-  const el = document.getElementById('musicContent');
-  if (el) {
-    el.innerHTML =
-      '<span class="no-items">Spotify not configured.</span><p class="music-hint">Add <code>SPOTIFY_CLIENT_ID</code>, <code>SPOTIFY_CLIENT_SECRET</code>, and <code>SPOTIFY_REFRESH_TOKEN</code> to the server <code>.env</code>. Get a refresh token via <a class="music-link" href="./api/spotify/login">one-time OAuth</a>, then restart the dev server.</p>';
-  }
-}
-
-function renderSpotifyPlayer(player) {
-  const el = document.getElementById('musicContent');
-  const ctrl = document.getElementById('musicControls');
-  const web = document.getElementById('musicWebPlayerBtn');
-  const wrap = document.querySelector('#musicCard .music-search-wrap');
-  if (!el || !ctrl) return;
-  spotifyConfigured = true;
-  ctrl.classList.add('visible');
-  if (web) web.style.display = spotifyWebPlayer ? 'none' : '';
-  if (wrap) wrap.style.display = '';
-
-  if (!player || !player.item) {
-    el.innerHTML =
-      '<span class="no-items">Nothing playing</span><p class="music-hint">Search for a track below or start playback on your Spotify account.</p>';
-    updatePlayPauseIcon(false);
-    return;
-  }
-
-  const track = player.item;
-  const images = track.album && track.album.images ? track.album.images : [];
-  const sorted = images.slice().sort((a, b) => (a.height || 0) - (b.height || 0));
-  const img = sorted.find((i) => (i.height || 0) >= 48) || sorted[sorted.length - 1];
-  const imgUrl = img && img.url ? img.url : '';
-  const artists = (track.artists || []).map((a) => a.name).join(', ');
-  const artHtml = imgUrl
-    ? `<img class="music-art" src="${escapeHtml(imgUrl)}" width="56" height="56" alt="" crossorigin="anonymous" />`
-    : '<div class="music-art music-art--placeholder" aria-hidden="true"></div>';
-  el.innerHTML =
-    '<div class="music-now">' +
-    artHtml +
-    '<div class="music-meta"><div class="music-title">' +
-    escapeHtml(track.name) +
-    '</div><div class="music-artist">' +
-    escapeHtml(artists) +
-    '</div></div></div>';
-  updatePlayPauseIcon(!!player.is_playing);
-}
-
-async function fetchSpotifyPlayer() {
-  try {
-    const r = await fetch('./api/spotify/player');
-    if (r.status === 503) {
-      renderSpotifyUnavailable();
-      return;
-    }
-    if (!r.ok) {
-      const err = await r.json().catch(() => ({}));
-      const el = document.getElementById('musicContent');
-      if (el) {
-        el.innerHTML =
-          '<span class="no-items">' + escapeHtml(err.error || 'Could not load Spotify player') + '</span>';
+          mediaRecorder.start();
+          isRecording = true;
+          micBtn.classList.add("recording");
+          setStatus("Listening...");
+        } catch (e) {
+          console.error("Mic error:", e);
+          setStatus("Microphone access denied");
+        }
       }
-      return;
-    }
-    const data = await r.json();
-    renderSpotifyPlayer(data.player);
-  } catch (e) {
-    console.warn('Spotify player', e);
-  }
-}
 
-async function spotifyTogglePlayPause() {
-  const dq = spotifyDevQuery();
-  const pr = await fetch('./api/spotify/player');
-  const pd = await pr.json().catch(() => ({}));
-  const playing = pd.player && pd.player.is_playing;
-  const url = playing ? './api/spotify/player/pause' + dq : './api/spotify/player/play' + dq;
-  const r = await fetch(url, { method: 'PUT' });
-  if (r.status !== 204 && !r.ok) {
-    const err = await r.json().catch(() => ({}));
-    setStatus(err.error || 'Spotify playback failed');
-  }
-  await fetchSpotifyPlayer();
-}
+      function getSupportedMime() {
+        const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
+        for (const mime of candidates) {
+          if (MediaRecorder.isTypeSupported(mime)) return mime;
+        }
+        return "";
+      }
 
-async function spotifyNext() {
-  const r = await fetch('./api/spotify/player/next' + spotifyDevQuery(), { method: 'POST' });
-  if (r.status !== 204 && !r.ok) {
-    const err = await r.json().catch(() => ({}));
-    setStatus(err.error || 'Next track failed');
-  }
-  await fetchSpotifyPlayer();
-}
+      function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+          mediaRecorder.stop();
+        }
+        isRecording = false;
+        micBtn.classList.remove("recording");
+      }
 
-async function spotifyPrevious() {
-  const r = await fetch('./api/spotify/player/previous' + spotifyDevQuery(), { method: 'POST' });
-  if (r.status !== 204 && !r.ok) {
-    const err = await r.json().catch(() => ({}));
-    setStatus(err.error || 'Previous track failed');
-  }
-  await fetchSpotifyPlayer();
-}
+      async function transcribeAudio(blob) {
+        setStatus("Transcribing...");
+        try {
+          const result = await puter.ai.speech2txt(blob);
+          const text = (typeof result === "string" ? result : result?.text || "").trim();
+          if (text) {
+            await sendToJarvis(text);
+          } else {
+            setStatus("I didn't catch that. Try again?");
+          }
+        } catch (e) {
+          console.error("STT error:", e);
+          setStatus("Transcription failed — try again");
+        }
+      }
 
-async function spotifyPlayUri(uri) {
-  const dq = spotifyDevQuery();
-  const r = await fetch('./api/spotify/player/play' + dq, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ uris: [uri] }),
-  });
-  if (r.status !== 204 && !r.ok) {
-    const err = await r.json().catch(() => ({}));
-    setStatus(err.error || 'Could not start track');
-    return;
-  }
-  document.getElementById('musicSearchResults').hidden = true;
-  await fetchSpotifyPlayer();
-}
+      // ─── UI helpers ───────────────────────────────────────────────────────────────
+      function addMessage(role, text) {
+        const div = document.createElement("div");
+        div.className = "msg " + role;
+        div.innerHTML = `<div class="label">${role === "user" ? "You" : "Jarvis"}</div>${escapeHtml(text)}`;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
 
-async function runMusicSearch(q) {
-  if (!spotifyConfigured) return;
-  try {
-    const r = await fetch('./api/spotify/search?q=' + encodeURIComponent(q));
-    if (!r.ok) return;
-    const data = await r.json();
-    const items = (data.tracks && data.tracks.items) || [];
-    const ul = document.getElementById('musicSearchResults');
-    ul.innerHTML = items
-      .map((t) => {
-        const label =
-          escapeHtml(t.name) + ' — ' + escapeHtml((t.artists || []).map((a) => a.name).join(', '));
-        return '<li><button type="button" data-uri="' + escapeHtml(t.uri) + '">' + label + '</button></li>';
-      })
-      .join('');
-    ul.hidden = items.length === 0;
-  } catch (e) {
-    console.warn('Spotify search', e);
-  }
-}
+      function escapeHtml(str) {
+        const d = document.createElement("div");
+        d.textContent = str;
+        return d.innerHTML;
+      }
 
-function loadSpotifySdk() {
-  return new Promise((resolve, reject) => {
-    if (window.Spotify) {
-      resolve();
-      return;
-    }
-    window.onSpotifyWebPlaybackSDKReady = () => resolve();
-    const s = document.createElement('script');
-    s.src = 'https://sdk.scdn.co/spotify-player.js';
-    s.async = true;
-    s.onerror = () => reject(new Error('Could not load Spotify Web Playback SDK'));
-    document.head.appendChild(s);
-  });
-}
+      function setStatus(msg) {
+        statusEl.textContent = msg;
+      }
 
-async function initSpotifyWebPlayer() {
-  const statusEl = document.getElementById('musicWebStatus');
-  const btn = document.getElementById('musicWebPlayerBtn');
-  if (!statusEl || !btn) return;
-  if (spotifyWebPlayer) {
-    statusEl.textContent = 'Browser player already active.';
-    btn.style.display = 'none';
-    return;
-  }
-  if (spotifyWebConnecting) return;
-  spotifyWebConnecting = true;
-  statusEl.textContent = 'Connecting browser player…';
-  btn.disabled = true;
-  try {
-    const tok = await fetch('./api/spotify/oauth-token');
-    if (!tok.ok) {
-      statusEl.textContent = 'OAuth token unavailable (check server .env).';
-      btn.disabled = false;
-      return;
-    }
-    await loadSpotifySdk();
-    const player = new Spotify.Player({
-      name: 'PowerSleep Jarvis',
-      getOAuthToken: (cb) => {
-        fetch('./api/spotify/oauth-token')
-          .then((r) => r.json())
-          .then((d) => cb(d.access_token))
-          .catch(() => cb(''));
-      },
-      volume: 0.85,
-    });
-    player.addListener('initialization_error', ({ message }) => {
-      statusEl.textContent = message || 'Initialization error';
-    });
-    player.addListener('authentication_error', ({ message }) => {
-      statusEl.textContent = message || 'Authentication error';
-    });
-    player.addListener('account_error', ({ message }) => {
-      statusEl.textContent = message || 'Premium required for in-browser playback.';
-    });
-    player.addListener('playback_error', ({ message }) => {
-      statusEl.textContent = message || 'Playback error';
-    });
-    player.addListener('ready', async ({ device_id }) => {
-      spotifyWebDeviceId = device_id;
-      btn.style.display = 'none';
-      statusEl.textContent = 'Playing in this tab — pick a track or press play.';
-      await fetch('./api/spotify/player/transfer', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device_ids: [device_id], play: false }),
-      });
-      await fetchSpotifyPlayer();
-    });
-    player.addListener('not_ready', ({ device_id }) => {
-      if (spotifyWebDeviceId === device_id) spotifyWebDeviceId = null;
-    });
-    const connected = await player.connect();
-    if (connected) {
-      spotifyWebPlayer = player;
-    } else {
-      statusEl.textContent = 'Could not connect to Spotify.';
-    }
-  } catch (e) {
-    console.warn('Spotify web player', e);
-    statusEl.textContent = e.message || 'Web player failed.';
-  } finally {
-    spotifyWebConnecting = false;
-    btn.disabled = false;
-  }
-}
+      // ─── Spotify music (sidebar) ─────────────────────────────────────────────────
+      let spotifyConfigured = false;
+      let spotifyWebDeviceId = null;
+      let spotifyWebPlayer = null;
+      let spotifyWebConnecting = false;
+      let spotifySearchTimer = null;
 
-function isBlindsDevice(d) {
-  if (!d) return false;
-  if (String(d.id || '').toLowerCase() === 'blinds') return true;
-  return String(d.name || '').trim().toLowerCase() === 'blinds';
-}
+      function spotifyDevQuery() {
+        return spotifyWebDeviceId ? "?device_id=" + encodeURIComponent(spotifyWebDeviceId) : "";
+      }
 
-function renderSmartHome() {
-  const el = document.getElementById('smartHomeContent');
-  if (!el) return;
-  const devices = remoteSmartHome.devices || [];
-  if (!devices.length) {
-    el.innerHTML = '<span class="no-items">No devices (demo)</span>';
-    return;
-  }
-  const rows = devices.map((d) => {
-    const v = d.on ? 1 : 0;
-    const idEsc = escapeHtml(d.id);
-    const aria = isBlindsDevice(d) ? 'Blinds' : 'Ambient lights';
-    const leftLabel = isBlindsDevice(d) ? 'Down' : 'Off';
-    const rightLabel = isBlindsDevice(d) ? 'Up' : 'On';
-    return `
+      function updatePlayPauseIcon(isPlaying) {
+        const root = document.getElementById("musicPlayPauseBtn");
+        if (!root) return;
+        const playIc = root.querySelector(".music-pp-play");
+        const pauseIc = root.querySelector(".music-pp-pause");
+        if (!playIc || !pauseIc) return;
+        playIc.style.display = isPlaying ? "none" : "block";
+        pauseIc.style.display = isPlaying ? "block" : "none";
+      }
+
+      function renderSpotifyUnavailable() {
+        spotifyConfigured = false;
+        spotifyContextHint = "Spotify: not configured on the server.";
+        spotifyWebDeviceId = null;
+        const ctrl = document.getElementById("musicControls");
+        const web = document.getElementById("musicWebPlayerBtn");
+        const ws = document.getElementById("musicWebStatus");
+        const wrap = document.querySelector("#musicCard .music-search-wrap");
+        if (ctrl) ctrl.classList.remove("visible");
+        if (web) web.style.display = "none";
+        if (ws) ws.textContent = "";
+        if (wrap) wrap.style.display = "none";
+        const el = document.getElementById("musicContent");
+        if (el) {
+          el.innerHTML =
+            '<span class="no-items">Spotify not configured.</span><p class="music-hint">Add <code>SPOTIFY_CLIENT_ID</code>, <code>SPOTIFY_CLIENT_SECRET</code>, and <code>SPOTIFY_REFRESH_TOKEN</code> to the server <code>.env</code>. Get a refresh token via <a class="music-link" href="./api/spotify/login">one-time OAuth</a>, then restart the dev server.</p>';
+        }
+      }
+
+      function renderSpotifyPlayer(player) {
+        const el = document.getElementById("musicContent");
+        const ctrl = document.getElementById("musicControls");
+        const web = document.getElementById("musicWebPlayerBtn");
+        const wrap = document.querySelector("#musicCard .music-search-wrap");
+        if (!el || !ctrl) return;
+        spotifyConfigured = true;
+        ctrl.classList.add("visible");
+        if (web) web.style.display = spotifyWebPlayer ? "none" : "";
+        if (wrap) wrap.style.display = "";
+
+        if (!player || !player.item) {
+          el.innerHTML = '<span class="no-items">Nothing playing</span><p class="music-hint">Search for a track below or start playback on your Spotify account.</p>';
+          updatePlayPauseIcon(false);
+          spotifyContextHint = "Spotify: nothing playing (open Spotify on a device or use search below).";
+          return;
+        }
+
+        const track = player.item;
+        const images = track.album && track.album.images ? track.album.images : [];
+        const sorted = images.slice().sort((a, b) => (a.height || 0) - (b.height || 0));
+        const img = sorted.find((i) => (i.height || 0) >= 48) || sorted[sorted.length - 1];
+        const imgUrl = img && img.url ? img.url : "";
+        const artists = (track.artists || []).map((a) => a.name).join(", ");
+        spotifyContextHint = `Spotify: ${player.is_playing ? "playing" : "paused"} — "${track.name}" by ${artists}.`;
+        const artHtml = imgUrl ? `<img class="music-art" src="${escapeHtml(imgUrl)}" width="56" height="56" alt="" crossorigin="anonymous" />` : '<div class="music-art music-art--placeholder" aria-hidden="true"></div>';
+        el.innerHTML = '<div class="music-now">' + artHtml + '<div class="music-meta"><div class="music-title">' + escapeHtml(track.name) + '</div><div class="music-artist">' + escapeHtml(artists) + "</div></div></div>";
+        updatePlayPauseIcon(!!player.is_playing);
+      }
+
+      async function fetchSpotifyPlayer() {
+        try {
+          const r = await fetch("./api/spotify/player");
+          if (r.status === 503) {
+            renderSpotifyUnavailable();
+            return;
+          }
+          if (!r.ok) {
+            const err = await r.json().catch(() => ({}));
+            const el = document.getElementById("musicContent");
+            if (el) {
+              el.innerHTML = '<span class="no-items">' + escapeHtml(err.error || "Could not load Spotify player") + "</span>";
+            }
+            return;
+          }
+          const data = await r.json();
+          renderSpotifyPlayer(data.player);
+        } catch (e) {
+          console.warn("Spotify player", e);
+        }
+      }
+
+      async function spotifyTogglePlayPause() {
+        const dq = spotifyDevQuery();
+        const pr = await fetch("./api/spotify/player");
+        const pd = await pr.json().catch(() => ({}));
+        const playing = pd.player && pd.player.is_playing;
+        const url = playing ? "./api/spotify/player/pause" + dq : "./api/spotify/player/play" + dq;
+        const r = await fetch(url, { method: "PUT" });
+        if (r.status !== 204 && !r.ok) {
+          const err = await r.json().catch(() => ({}));
+          setStatus(err.error || "Spotify playback failed");
+        }
+        await fetchSpotifyPlayer();
+      }
+
+      async function spotifyNext() {
+        const r = await fetch("./api/spotify/player/next" + spotifyDevQuery(), { method: "POST" });
+        if (r.status !== 204 && !r.ok) {
+          const err = await r.json().catch(() => ({}));
+          setStatus(err.error || "Next track failed");
+        }
+        await fetchSpotifyPlayer();
+      }
+
+      async function spotifyPrevious() {
+        const r = await fetch("./api/spotify/player/previous" + spotifyDevQuery(), { method: "POST" });
+        if (r.status !== 204 && !r.ok) {
+          const err = await r.json().catch(() => ({}));
+          setStatus(err.error || "Previous track failed");
+        }
+        await fetchSpotifyPlayer();
+      }
+
+      async function spotifyPlayUri(uri) {
+        const dq = spotifyDevQuery();
+        const r = await fetch("./api/spotify/player/play" + dq, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uris: [uri] }),
+        });
+        if (r.status !== 204 && !r.ok) {
+          const err = await r.json().catch(() => ({}));
+          setStatus(err.error || "Could not start track");
+          return;
+        }
+        document.getElementById("musicSearchResults").hidden = true;
+        await fetchSpotifyPlayer();
+      }
+
+      async function spotifyQueueUri(uri) {
+        if (!spotifyConfigured) return;
+        const q = spotifyWebDeviceId ? "?device_id=" + encodeURIComponent(spotifyWebDeviceId) : "";
+        const r = await fetch("./api/spotify/player/queue" + q, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uri }),
+        });
+        if (r.status !== 204 && !r.ok) {
+          const err = await r.json().catch(() => ({}));
+          setStatus(err.error || "Could not add to queue");
+          return;
+        }
+        setStatus("Added to queue");
+        await fetchSpotifyPlayer();
+      }
+
+      function trackLabelFromSpotifyItem(t) {
+        if (!t || !t.name) return "";
+        const artists = (t.artists || []).map((a) => a.name).join(", ");
+        return artists ? `${t.name} — ${artists}` : String(t.name);
+      }
+
+      async function spotifyResumePlayback() {
+        if (!spotifyConfigured) {
+          throw new Error("Spotify is not configured on the server.");
+        }
+        const dq = spotifyDevQuery();
+        const r = await fetch("./api/spotify/player/play" + dq, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
+        if (r.status !== 204 && !r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error || "Could not start playback — open Spotify on a device or use Play in this browser.");
+        }
+        await fetchSpotifyPlayer();
+      }
+
+      async function spotifyPausePlayback() {
+        if (!spotifyConfigured) {
+          throw new Error("Spotify is not configured on the server.");
+        }
+        const dq = spotifyDevQuery();
+        const r = await fetch("./api/spotify/player/pause" + dq, { method: "PUT" });
+        if (r.status !== 204 && !r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error || "Could not pause playback.");
+        }
+        await fetchSpotifyPlayer();
+      }
+
+      async function spotifySkipNextStrict() {
+        if (!spotifyConfigured) {
+          throw new Error("Spotify is not configured on the server.");
+        }
+        const r = await fetch("./api/spotify/player/next" + spotifyDevQuery(), { method: "POST" });
+        if (r.status !== 204 && !r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error || "Could not skip to next track.");
+        }
+        await fetchSpotifyPlayer();
+      }
+
+      async function spotifySkipPreviousStrict() {
+        if (!spotifyConfigured) {
+          throw new Error("Spotify is not configured on the server.");
+        }
+        const r = await fetch("./api/spotify/player/previous" + spotifyDevQuery(), { method: "POST" });
+        if (r.status !== 204 && !r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error || "Could not go to previous track.");
+        }
+        await fetchSpotifyPlayer();
+      }
+
+      async function spotifySearchFirstTrack(query) {
+        if (!spotifyConfigured) {
+          throw new Error("Spotify is not configured on the server.");
+        }
+        const q = (query == null ? "" : String(query)).trim();
+        if (!q) {
+          throw new Error("Search query is empty.");
+        }
+        const r = await fetch("./api/spotify/search?q=" + encodeURIComponent(q));
+        if (r.status === 503) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error || "Spotify is not configured.");
+        }
+        if (!r.ok) {
+          throw new Error("Track search failed.");
+        }
+        const data = await r.json();
+        const items = (data.tracks && data.tracks.items) || [];
+        if (!items.length) {
+          throw new Error("No tracks matched that search.");
+        }
+        return items[0];
+      }
+
+      async function spotifyPlayUriStrict(uri) {
+        const dq = spotifyDevQuery();
+        const r = await fetch("./api/spotify/player/play" + dq, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uris: [uri] }),
+        });
+        if (r.status !== 204 && !r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error || "Could not start that track.");
+        }
+        const ul = document.getElementById("musicSearchResults");
+        if (ul) ul.hidden = true;
+        await fetchSpotifyPlayer();
+      }
+
+      async function spotifyQueueUriStrict(uri) {
+        const q = spotifyWebDeviceId ? "?device_id=" + encodeURIComponent(spotifyWebDeviceId) : "";
+        const r = await fetch("./api/spotify/player/queue" + q, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uri }),
+        });
+        if (r.status !== 204 && !r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error || "Could not add to queue (active Spotify device required).");
+        }
+        await fetchSpotifyPlayer();
+      }
+
+      async function runMusicSearch(q) {
+        if (!spotifyConfigured) return;
+        try {
+          const r = await fetch("./api/spotify/search?q=" + encodeURIComponent(q));
+          if (!r.ok) return;
+          const data = await r.json();
+          const items = (data.tracks && data.tracks.items) || [];
+          const ul = document.getElementById("musicSearchResults");
+          ul.innerHTML = items
+            .map((t) => {
+              const label = escapeHtml(t.name) + " — " + escapeHtml((t.artists || []).map((a) => a.name).join(", "));
+              const uriEsc = escapeHtml(t.uri);
+              return (
+                '<li class="music-result-row">' +
+                '<span class="music-result-label">' +
+                label +
+                '</span><span class="music-result-actions">' +
+                '<button type="button" class="music-result-btn--play" data-action="play" data-uri="' +
+                uriEsc +
+                '">Play</button>' +
+                '<button type="button" class="music-result-btn--queue" data-action="queue" data-uri="' +
+                uriEsc +
+                '">Queue</button>' +
+                "</span></li>"
+              );
+            })
+            .join("");
+          ul.hidden = items.length === 0;
+        } catch (e) {
+          console.warn("Spotify search", e);
+        }
+      }
+
+      function loadSpotifySdk() {
+        return new Promise((resolve, reject) => {
+          if (window.Spotify) {
+            resolve();
+            return;
+          }
+          window.onSpotifyWebPlaybackSDKReady = () => resolve();
+          const s = document.createElement("script");
+          s.src = "https://sdk.scdn.co/spotify-player.js";
+          s.async = true;
+          s.onerror = () => reject(new Error("Could not load Spotify Web Playback SDK"));
+          document.head.appendChild(s);
+        });
+      }
+
+      async function initSpotifyWebPlayer() {
+        const statusEl = document.getElementById("musicWebStatus");
+        const btn = document.getElementById("musicWebPlayerBtn");
+        if (!statusEl || !btn) return;
+        if (spotifyWebPlayer) {
+          statusEl.textContent = "Browser player already active.";
+          btn.style.display = "none";
+          return;
+        }
+        if (spotifyWebConnecting) return;
+        spotifyWebConnecting = true;
+        statusEl.textContent = "Connecting browser player…";
+        btn.disabled = true;
+        try {
+          const tok = await fetch("./api/spotify/oauth-token");
+          if (!tok.ok) {
+            statusEl.textContent = "OAuth token unavailable (check server .env).";
+            btn.disabled = false;
+            return;
+          }
+          await loadSpotifySdk();
+          const player = new Spotify.Player({
+            name: "PowerSleep Jarvis",
+            getOAuthToken: (cb) => {
+              fetch("./api/spotify/oauth-token")
+                .then((r) => r.json())
+                .then((d) => cb(d.access_token))
+                .catch(() => cb(""));
+            },
+            volume: 0.85,
+          });
+          player.addListener("initialization_error", ({ message }) => {
+            statusEl.textContent = message || "Initialization error";
+          });
+          player.addListener("authentication_error", ({ message }) => {
+            statusEl.textContent = message || "Authentication error";
+          });
+          player.addListener("account_error", ({ message }) => {
+            statusEl.textContent = message || "Premium required for in-browser playback.";
+          });
+          player.addListener("playback_error", ({ message }) => {
+            statusEl.textContent = message || "Playback error";
+          });
+          player.addListener("ready", async ({ device_id }) => {
+            spotifyWebDeviceId = device_id;
+            btn.style.display = "none";
+            statusEl.textContent = "Playing in this tab — pick a track or press play.";
+            await fetch("./api/spotify/player/transfer", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ device_ids: [device_id], play: false }),
+            });
+            await fetchSpotifyPlayer();
+          });
+          player.addListener("not_ready", ({ device_id }) => {
+            if (spotifyWebDeviceId === device_id) spotifyWebDeviceId = null;
+          });
+          const connected = await player.connect();
+          if (connected) {
+            spotifyWebPlayer = player;
+          } else {
+            statusEl.textContent = "Could not connect to Spotify.";
+          }
+        } catch (e) {
+          console.warn("Spotify web player", e);
+          statusEl.textContent = e.message || "Web player failed.";
+        } finally {
+          spotifyWebConnecting = false;
+          btn.disabled = false;
+        }
+      }
+
+      function isBlindsDevice(d) {
+        if (!d) return false;
+        if (String(d.id || "").toLowerCase() === "blinds") return true;
+        return (
+          String(d.name || "")
+            .trim()
+            .toLowerCase() === "blinds"
+        );
+      }
+
+      function renderSmartHome() {
+        const el = document.getElementById("smartHomeContent");
+        if (!el) return;
+        const devices = remoteSmartHome.devices || [];
+        if (!devices.length) {
+          el.innerHTML = '<span class="no-items">No devices (demo)</span>';
+          return;
+        }
+        const rows = devices
+          .map((d) => {
+            const v = d.on ? 1 : 0;
+            const idEsc = escapeHtml(d.id);
+            const aria = isBlindsDevice(d) ? "Blinds" : "Ambient lights";
+            const leftLabel = isBlindsDevice(d) ? "Down" : "Off";
+            const rightLabel = isBlindsDevice(d) ? "Up" : "On";
+            return `
       <div class="smart-home-row">
         <div class="smart-home-row__name">${escapeHtml(d.name)}</div>
         <div class="smart-home-row__controls">
           <span class="smart-home-end-label smart-home-end-label--left">${leftLabel}</span>
           <label class="smart-home-toggle">
-            <input type="checkbox" class="smart-home-slider" data-device-id="${idEsc}" ${v ? 'checked' : ''} aria-label="${escapeHtml(aria)}" />
+            <input type="checkbox" class="smart-home-slider" data-device-id="${idEsc}" ${v ? "checked" : ""} aria-label="${escapeHtml(aria)}" />
             <span class="smart-home-toggle__track"></span>
             <span class="smart-home-toggle__thumb"></span>
           </label>
           <span class="smart-home-end-label smart-home-end-label--right">${rightLabel}</span>
         </div>
       </div>`;
-  }).join('');
-  el.innerHTML = `<div class="smart-home-list">${rows}</div>`;
-}
+          })
+          .join("");
+        el.innerHTML = `<div class="smart-home-list">${rows}</div>`;
+      }
 
-function syncChatFromServer(serverHistory) {
-  if (!Array.isArray(serverHistory)) return;
-  const localLen = conversationHistory.length;
-  if (serverHistory.length <= localLen) return;
-  const newMessages = serverHistory.slice(localLen);
-  for (const msg of newMessages) {
-    conversationHistory.push(msg);
-    addMessage(msg.role, msg.content);
-  }
-}
+      function syncChatFromServer(serverHistory) {
+        if (!Array.isArray(serverHistory)) return;
+        const localLen = conversationHistory.length;
+        if (serverHistory.length <= localLen) return;
+        const newMessages = serverHistory.slice(localLen);
+        for (const msg of newMessages) {
+          conversationHistory.push(msg);
+          addMessage(msg.role, msg.content);
+        }
+      }
 
-async function pollDemoState() {
-  if (smartHomeMutationPending) return;
-  try {
-    const r = await fetch('./api/state');
-    if (!r.ok) return;
-    const data = await r.json();
-    const normalized = normalizeSmartHomeClient(data.smartHome?.devices);
-    if (
-      data.revision === lastDemoRevision &&
-      JSON.stringify(normalized) === JSON.stringify(remoteSmartHome)
-    ) {
-      return;
-    }
-    const rev = Number(data.revision);
-    lastDemoRevision = Number.isFinite(rev) ? rev : lastDemoRevision;
-    remotePersonality = typeof data.feed?.personality === 'string' ? data.feed.personality : '';
-    remoteSmartHome = normalized;
-    renderSmartHome();
-    syncChatFromServer(data.chatHistory);
-  } catch (e) {
-    console.warn('Demo state poll failed', e);
-    const el = document.getElementById('smartHomeContent');
-    if (el && lastDemoRevision < 0) {
-      el.innerHTML = '<span class="no-items">Demo server unavailable (run npm run dev)</span>';
-    }
-  }
-}
+      async function pollDemoState() {
+        if (smartHomeMutationPending) return;
+        try {
+          const r = await fetch("./api/state");
+          if (!r.ok) return;
+          const data = await r.json();
+          const normalized = normalizeSmartHomeClient(data.smartHome?.devices);
+          if (data.revision === lastDemoRevision && JSON.stringify(normalized) === JSON.stringify(remoteSmartHome)) {
+            return;
+          }
+          const rev = Number(data.revision);
+          lastDemoRevision = Number.isFinite(rev) ? rev : lastDemoRevision;
+          remotePersonality = typeof data.feed?.personality === "string" ? data.feed.personality : "";
+          remoteSmartHome = normalized;
+          renderSmartHome();
+          syncChatFromServer(data.chatHistory);
+        } catch (e) {
+          console.warn("Demo state poll failed", e);
+          const el = document.getElementById("smartHomeContent");
+          if (el && lastDemoRevision < 0) {
+            el.innerHTML = '<span class="no-items">Demo server unavailable (run npm run dev)</span>';
+          }
+        }
+      }
 
-// ─── Event listeners ──────────────────────────────────────────────────────────
-document.getElementById('musicPlayPauseBtn').addEventListener('click', () => {
-  spotifyTogglePlayPause();
-});
-document.getElementById('musicPrevBtn').addEventListener('click', () => {
-  spotifyPrevious();
-});
-document.getElementById('musicNextBtn').addEventListener('click', () => {
-  spotifyNext();
-});
-document.getElementById('musicWebPlayerBtn').addEventListener('click', () => {
-  initSpotifyWebPlayer();
-});
-document.getElementById('musicSearchInput').addEventListener('input', (e) => {
-  clearTimeout(spotifySearchTimer);
-  const q = e.target.value.trim();
-  const ul = document.getElementById('musicSearchResults');
-  if (!q) {
-    ul.hidden = true;
-    ul.innerHTML = '';
-    return;
-  }
-  spotifySearchTimer = setTimeout(() => runMusicSearch(q), 380);
-});
-document.getElementById('musicSearchResults').addEventListener('click', (e) => {
-  const btn = e.target.closest('button[data-uri]');
-  if (!btn) return;
-  const uri = btn.getAttribute('data-uri');
-  if (uri) spotifyPlayUri(uri);
-});
+      // ─── Event listeners ──────────────────────────────────────────────────────────
+      document.getElementById("musicPlayPauseBtn").addEventListener("click", () => {
+        spotifyTogglePlayPause();
+      });
+      document.getElementById("musicPrevBtn").addEventListener("click", () => {
+        spotifyPrevious();
+      });
+      document.getElementById("musicNextBtn").addEventListener("click", () => {
+        spotifyNext();
+      });
+      document.getElementById("musicWebPlayerBtn").addEventListener("click", () => {
+        initSpotifyWebPlayer();
+      });
+      document.getElementById("musicSearchInput").addEventListener("input", (e) => {
+        clearTimeout(spotifySearchTimer);
+        const q = e.target.value.trim();
+        const ul = document.getElementById("musicSearchResults");
+        if (!q) {
+          ul.hidden = true;
+          ul.innerHTML = "";
+          return;
+        }
+        spotifySearchTimer = setTimeout(() => runMusicSearch(q), 380);
+      });
+      document.getElementById("musicSearchResults").addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-uri]");
+        if (!btn) return;
+        const uri = btn.getAttribute("data-uri");
+        if (!uri) return;
+        const action = btn.getAttribute("data-action") || "play";
+        if (action === "queue") spotifyQueueUri(uri);
+        else spotifyPlayUri(uri);
+      });
 
-micBtn.addEventListener('mousedown', () => { if (!isRecording) startRecording(); });
-micBtn.addEventListener('mouseup', () => { if (isRecording) stopRecording(); });
-micBtn.addEventListener('mouseleave', () => { if (isRecording) stopRecording(); });
+      micBtn.addEventListener("mousedown", () => {
+        if (!isRecording) startRecording();
+      });
+      micBtn.addEventListener("mouseup", () => {
+        if (isRecording) stopRecording();
+      });
+      micBtn.addEventListener("mouseleave", () => {
+        if (isRecording) stopRecording();
+      });
 
-micBtn.addEventListener('touchstart', (e) => { e.preventDefault(); if (!isRecording) startRecording(); });
-micBtn.addEventListener('touchend', (e) => { e.preventDefault(); if (isRecording) stopRecording(); });
+      micBtn.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        if (!isRecording) startRecording();
+      });
+      micBtn.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        if (isRecording) stopRecording();
+      });
 
-micBtn.addEventListener('click', (e) => {
-  // Toggle fallback for click-style usage (not just hold)
-});
+      micBtn.addEventListener("click", (e) => {
+        // Toggle fallback for click-style usage (not just hold)
+      });
 
-textInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendTextMessage();
-  }
-});
+      textInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendTextMessage();
+        }
+      });
 
-function sendTextMessage() {
-  const text = textInput.value.trim();
-  if (!text) return;
-  textInput.value = '';
-  sendToJarvis(text);
-}
+      function sendTextMessage() {
+        const text = textInput.value.trim();
+        if (!text) return;
+        textInput.value = "";
+        sendToJarvis(text);
+      }
 
-document.getElementById('smartHomeContent').addEventListener('change', async (e) => {
-  const slider = e.target;
-  if (!slider.classList || !slider.classList.contains('smart-home-slider')) return;
-  const id = slider.dataset.deviceId;
-  if (!id) return;
-  const on = slider.checked;
-  const beforeDevices = remoteSmartHome.devices ? remoteSmartHome.devices.map((d) => ({ ...d })) : [];
-  let commitSucceeded = false;
-  smartHomeMutationPending = true;
-  try {
-    if (beforeDevices.length) {
-      const optimistic = beforeDevices.map((d) =>
-        String(d.id).toLowerCase() === String(id).toLowerCase() ? { ...d, on } : d
-      );
-      remoteSmartHome = normalizeSmartHomeClient(optimistic);
-      renderSmartHome();
-    }
+      document.getElementById("smartHomeContent").addEventListener("change", async (e) => {
+        const slider = e.target;
+        if (!slider.classList || !slider.classList.contains("smart-home-slider")) return;
+        const id = slider.dataset.deviceId;
+        if (!id) return;
+        const on = slider.checked;
+        const beforeDevices = remoteSmartHome.devices ? remoteSmartHome.devices.map((d) => ({ ...d })) : [];
+        let commitSucceeded = false;
+        smartHomeMutationPending = true;
+        try {
+          if (beforeDevices.length) {
+            const optimistic = beforeDevices.map((d) => (String(d.id).toLowerCase() === String(id).toLowerCase() ? { ...d, on } : d));
+            remoteSmartHome = normalizeSmartHomeClient(optimistic);
+            renderSmartHome();
+          }
 
-    const r = await fetch('./api/smart-home/set', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, on }),
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      remoteSmartHome = normalizeSmartHomeClient(beforeDevices);
-      renderSmartHome();
-      setStatus(data.error || 'Could not update device');
-      return;
-    }
-    if (data.smartHome && Array.isArray(data.smartHome.devices)) {
-      remoteSmartHome = normalizeSmartHomeClient(data.smartHome.devices);
-    }
-    const rev = Number(data.revision);
-    if (Number.isFinite(rev)) lastDemoRevision = rev;
-    renderSmartHome();
-    commitSucceeded = true;
-  } catch (err) {
-    console.warn('Smart home set failed', err);
-    remoteSmartHome = normalizeSmartHomeClient(beforeDevices);
-    renderSmartHome();
-    setStatus('Update failed — is the app server running?');
-  } finally {
-    smartHomeMutationPending = false;
-  }
-  await pollDemoState();
-  if (commitSucceeded) setStatus('Ready');
-});
+          const r = await fetch("./api/smart-home/set", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, on }),
+          });
+          const data = await r.json().catch(() => ({}));
+          if (!r.ok) {
+            remoteSmartHome = normalizeSmartHomeClient(beforeDevices);
+            renderSmartHome();
+            setStatus(data.error || "Could not update device");
+            return;
+          }
+          if (data.smartHome && Array.isArray(data.smartHome.devices)) {
+            remoteSmartHome = normalizeSmartHomeClient(data.smartHome.devices);
+          }
+          const rev = Number(data.revision);
+          if (Number.isFinite(rev)) lastDemoRevision = rev;
+          renderSmartHome();
+          commitSucceeded = true;
+        } catch (err) {
+          console.warn("Smart home set failed", err);
+          remoteSmartHome = normalizeSmartHomeClient(beforeDevices);
+          renderSmartHome();
+          setStatus("Update failed — is the app server running?");
+        } finally {
+          smartHomeMutationPending = false;
+        }
+        await pollDemoState();
+        if (commitSucceeded) setStatus("Ready");
+      });
 
-// ─── Dev tools ────────────────────────────────────────────────────────────────
-const INITIAL_GREETING = 'Good evening. I\'m Jarvis, your personal assistant. How may I help you today? You can type below or press the microphone to speak.';
+      // ─── Dev tools ────────────────────────────────────────────────────────────────
+      const INITIAL_GREETING = "Good evening. I'm Jarvis, your personal assistant. How may I help you today? You can type below or press the microphone to speak.";
 
-function getAdminToken() {
-  const stored = sessionStorage.getItem('admin_token');
-  if (stored) return stored;
-  const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
-  if (isLocal) return 'dev-demo-secret';
-  const token = prompt('Enter admin secret:');
-  if (token) sessionStorage.setItem('admin_token', token);
-  return token || '';
-}
+      function getAdminToken() {
+        const stored = sessionStorage.getItem("admin_token");
+        if (stored) return stored;
+        const isLocal = ["localhost", "127.0.0.1"].includes(location.hostname);
+        if (isLocal) return "dev-demo-secret";
+        const token = prompt("Enter admin secret:");
+        if (token) sessionStorage.setItem("admin_token", token);
+        return token || "";
+      }
 
-function resetChatTranscript() {
-  conversationHistory = [];
-  messagesEl.innerHTML = `<div class="msg assistant"><div class="label">Jarvis</div>${escapeHtml(INITIAL_GREETING)}</div>`;
-}
+      function resetChatTranscript() {
+        conversationHistory = [];
+        messagesEl.innerHTML = `<div class="msg assistant"><div class="label">Jarvis</div>${escapeHtml(INITIAL_GREETING)}</div>`;
+      }
 
-async function devReloadPrompt() {
-  invalidateSystemPrompt();
-  await getSystemPrompt();
-  setStatus('System prompt reloaded');
-}
+      async function devReloadPrompt() {
+        invalidateSystemPrompt();
+        await getSystemPrompt();
+        setStatus("System prompt reloaded");
+      }
 
-async function devClearChat() {
-  const token = getAdminToken();
-  if (!token) { setStatus('No admin token — aborted'); return; }
-  try {
-    const r = await fetch('./api/chat', {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
-    if (!r.ok) {
-      const data = await r.json().catch(() => ({}));
-      throw new Error(data.error || `HTTP ${r.status}`);
-    }
-    const data = await r.json();
-    const rev = Number(data.revision);
-    if (Number.isFinite(rev)) lastDemoRevision = rev;
-    resetChatTranscript();
-    setStatus('Chat history cleared');
-  } catch (e) {
-    console.error('Clear chat failed:', e);
-    setStatus('Failed to clear chat: ' + e.message);
-  }
-}
+      async function devClearChat() {
+        const token = getAdminToken();
+        if (!token) {
+          setStatus("No admin token — aborted");
+          return;
+        }
+        try {
+          const r = await fetch("./api/chat", {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!r.ok) {
+            const data = await r.json().catch(() => ({}));
+            throw new Error(data.error || `HTTP ${r.status}`);
+          }
+          const data = await r.json();
+          const rev = Number(data.revision);
+          if (Number.isFinite(rev)) lastDemoRevision = rev;
+          resetChatTranscript();
+          setStatus("Chat history cleared");
+        } catch (e) {
+          console.error("Clear chat failed:", e);
+          setStatus("Failed to clear chat: " + e.message);
+        }
+      }
 
-function initDevToolbar() {
-  const params = new URLSearchParams(location.search);
-  if (params.has('dev')) sessionStorage.setItem('dev_mode', '1');
-  if (sessionStorage.getItem('dev_mode') !== '1') return;
+      function initDevToolbar() {
+        const params = new URLSearchParams(location.search);
+        if (params.has("dev")) sessionStorage.setItem("dev_mode", "1");
+        if (sessionStorage.getItem("dev_mode") !== "1") return;
 
-  const bar = document.createElement('div');
-  bar.id = 'devToolbar';
-  bar.innerHTML = `
+        const bar = document.createElement("div");
+        bar.id = "devToolbar";
+        bar.innerHTML = `
     <span class="dev-label">DEV</span>
     <button onclick="devReloadPrompt()">Reload Prompt</button>
     <button onclick="devClearChat()">Clear Chat</button>`;
-  document.body.prepend(bar);
-}
+        document.body.prepend(bar);
+      }
 
-// ─── Sidebar toggle ──────────────────────────────────────────────────────────
-const sidebarEl = document.querySelector('.sidebar');
-const backdropEl = document.getElementById('sidebarBackdrop');
-document.getElementById('sidebarToggle').addEventListener('click', () => {
-  sidebarEl.classList.toggle('open');
-  backdropEl.classList.toggle('visible');
-});
-function closeSidebar() {
-  sidebarEl.classList.remove('open');
-  backdropEl.classList.remove('visible');
-}
-backdropEl.addEventListener('click', closeSidebar);
-document.getElementById('sidebarClose').addEventListener('click', closeSidebar);
+      // ─── Sidebar toggle ──────────────────────────────────────────────────────────
+      const sidebarEl = document.querySelector(".sidebar");
+      const backdropEl = document.getElementById("sidebarBackdrop");
+      document.getElementById("sidebarToggle").addEventListener("click", () => {
+        sidebarEl.classList.toggle("open");
+        backdropEl.classList.toggle("visible");
+      });
+      function closeSidebar() {
+        sidebarEl.classList.remove("open");
+        backdropEl.classList.remove("visible");
+      }
+      backdropEl.addEventListener("click", closeSidebar);
+      document.getElementById("sidebarClose").addEventListener("click", closeSidebar);
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
-window.addEventListener('load', () => {
-  fetchWeather();
-  fetchCalendarEvents();
-  fetchSpotifyPlayer();
-  setInterval(fetchSpotifyPlayer, 4000);
-  pollDemoState();
-  setInterval(pollDemoState, 2000);
-  setInterval(fetchCalendarEvents, 30000);
-  initDevToolbar();
-});
-</script>
-
-</body>
+      // ─── Init ─────────────────────────────────────────────────────────────────────
+      window.addEventListener("load", () => {
+        fetchWeather();
+        fetchCalendarEvents();
+        fetchSpotifyPlayer();
+        setInterval(fetchSpotifyPlayer, 4000);
+        pollDemoState();
+        setInterval(pollDemoState, 2000);
+        setInterval(fetchCalendarEvents, 30000);
+        initDevToolbar();
+      });
+    </script>
+  </body>
 </html>

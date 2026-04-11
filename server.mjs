@@ -657,6 +657,29 @@ code,pre{background:#111827;color:#e2e8f0;padding:.5rem;border-radius:8px;displa
     });
   });
 
+  app.post("/api/spotify/player/queue", async (req, res) => {
+    if (!spotifyEnvConfigured()) {
+      return res.status(503).json({ error: "Spotify not configured on the server." });
+    }
+    const uri = req.body?.uri;
+    if (typeof uri !== "string" || !uri.startsWith("spotify:")) {
+      return res.status(400).json({ error: "body.uri must be a spotify: URI (e.g. spotify:track:…)." });
+    }
+    const deviceId = req.query.device_id;
+    /** @type {Record<string, string>} */
+    const query = { uri };
+    if (typeof deviceId === "string" && deviceId) {
+      query.device_id = deviceId;
+    }
+    const r = await spotifyApiRequest("POST", "/me/player/queue", { query });
+    if (r.status === 204 || r.ok) {
+      return res.status(204).end();
+    }
+    return res.status(r.status >= 400 && r.status < 600 ? r.status : 502).json({
+      error: r.data?.error?.message || "Add to queue failed.",
+    });
+  });
+
   app.put("/api/spotify/player/transfer", async (req, res) => {
     if (!spotifyEnvConfigured()) {
       return res.status(503).json({ error: "Spotify not configured on the server." });

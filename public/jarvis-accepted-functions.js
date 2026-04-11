@@ -60,4 +60,85 @@ var JARVIS_TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'set_demo_smart_home_device',
+      description:
+        'Set the demo smart home devices shown in the sidebar. Device `ambient` is the ambient lights (on/off). Device `blinds`: on=true means blinds raised/up, on=false means lowered/down.',
+      parameters: {
+        type: 'object',
+        properties: {
+          device: {
+            type: 'string',
+            enum: ['ambient', 'blinds'],
+            description: '`ambient` = lights; `blinds` = window blinds (on = up)',
+          },
+          on: { type: 'boolean', description: 'Target power/up state' },
+        },
+        required: ['device', 'on'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'spotify_play',
+      description: 'Start or resume Spotify playback on the user’s active device (same as pressing play in the UI).',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'spotify_pause',
+      description: 'Pause Spotify playback.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'spotify_skip_next',
+      description: 'Skip to the next track in Spotify.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'spotify_skip_previous',
+      description: 'Go to the previous track in Spotify.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'spotify_play_track',
+      description:
+        'Search Spotify for a track by title/artist (or lyrics the user sang) and immediately play the best match.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Search string, e.g. song title and artist' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'spotify_queue_track',
+      description: 'Search Spotify and add the best matching track to the playback queue (does not skip current song).',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Search string, e.g. song title and artist' },
+        },
+        required: ['query'],
+      },
+    },
+  },
 ];
