@@ -617,11 +617,10 @@
 
     /* ---------- responsive ---------- */
     @media (max-width: 768px) {
-      /* iOS Safari: prefer svh (UI expanded) so layout height matches visible area; fall back to dvh/vh. */
+      /* iOS: dvh tracks visible viewport better than vh; avoid 100svh here — it sits the bar too high. */
       body {
         height: 100vh;
         height: 100dvh;
-        height: 100svh;
       }
       .sidebar-toggle { display: flex; }
       .sidebar-close { display: flex; }
@@ -643,9 +642,9 @@
       .sidebar.open {
         transform: translateX(0);
       }
-      /* Keep the composer above Safari bottom chrome (URL bar can be ~44–83px) + home indicator. */
+      /* Slight lift for home indicator / thin bottom inset only — keeps the bar much lower than before. */
       .input-bar {
-        padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px) + clamp(2.75rem, 12vmin, 4.25rem));
+        padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px) + 10px);
       }
     }
   </style>
