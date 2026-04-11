@@ -257,6 +257,24 @@ function createApp() {
     res.json({ ok: true, revision: state.revision });
   });
 
+  app.delete("/api/chat", (req, res) => {
+    const secret = getAdminSecret();
+    if (!secret) {
+      return res
+        .status(503)
+        .json({ error: "Set ADMIN_SECRET in the environment for writes." });
+    }
+    const auth = req.headers.authorization || "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+    if (token !== secret) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    state.chatHistory = [];
+    state.revision += 1;
+    state.updatedAt = new Date().toISOString();
+    res.json({ ok: true, revision: state.revision, updatedAt: state.updatedAt });
+  });
+
   app.post("/api/smart-home/toggle", (req, res) => {
     reconcileSmartHomeToCanonical();
     let id = req.body?.id;
@@ -369,6 +387,7 @@ function createApp() {
         id: ev.id,
         summary: ev.summary || "(No title)",
         description: ev.description || "",
+        allDay: Boolean(ev.start?.date),
         start: ev.start.dateTime || ev.start.date,
         end: ev.end.dateTime || ev.end.date,
       }));
@@ -380,17 +399,56 @@ function createApp() {
     }
   });
 
+  /** Build Google Calendar start/end objects from a request body. */
+  function calendarTimeFields(body) {
+    if (body.allDay) {
+      const startDate = body.startDate || body.date;
+      if (!startDate || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return null;
+      let endDate = body.endDate;
+      if (!endDate) {
+        const d = new Date(startDate + "T00:00:00");
+        d.setDate(d.getDate() + 1);
+        endDate = d.toISOString().slice(0, 10);
+      }
+      return {
+        start: { date: startDate },
+        end: { date: endDate },
+      };
+    }
+    const { start, end } = body;
+    if (!start || !end) return null;
+    return {
+      start: { dateTime: start, timeZone: "America/New_York" },
+      end: { dateTime: end, timeZone: "America/New_York" },
+    };
+  }
+
+  function calendarEventResponse(ev) {
+    return {
+      id: ev.id,
+      summary: ev.summary || "(No title)",
+      description: ev.description || "",
+      allDay: Boolean(ev.start?.date),
+      start: ev.start.dateTime || ev.start.date,
+      end: ev.end.dateTime || ev.end.date,
+    };
+  }
+
   app.post("/api/calendar/events", async (req, res) => {
     if (!calendarClient || !CALENDAR_ID) {
       return res
         .status(503)
         .json({ error: "Google Calendar not configured on the server." });
     }
-    const { summary, start, end, description } = req.body || {};
-    if (!summary || !start || !end) {
+    const { summary, description } = req.body || {};
+    if (!summary) {
+      return res.status(400).json({ error: "summary is required." });
+    }
+    const times = calendarTimeFields(req.body);
+    if (!times) {
       return res
         .status(400)
-        .json({ error: "summary, start, and end are required." });
+        .json({ error: "Provide start/end (timed) or allDay + startDate (all-day)." });
     }
     try {
       const resp = await calendarClient.events.insert({
@@ -398,21 +456,10 @@ function createApp() {
         requestBody: {
           summary,
           description: description || "",
-          start: { dateTime: start, timeZone: "America/New_York" },
-          end: { dateTime: end, timeZone: "America/New_York" },
+          ...times,
         },
       });
-      const ev = resp.data;
-      res.json({
-        ok: true,
-        event: {
-          id: ev.id,
-          summary: ev.summary,
-          description: ev.description || "",
-          start: ev.start.dateTime || ev.start.date,
-          end: ev.end.dateTime || ev.end.date,
-        },
-      });
+      res.json({ ok: true, event: calendarEventResponse(resp.data) });
     } catch (err) {
       console.error("[calendar] Failed to create event:", err.message);
       res.status(500).json({ error: "Failed to create calendar event." });
@@ -646,6 +693,54 @@ code,pre{background:#111827;color:#e2e8f0;padding:.5rem;border-radius:8px;displa
       });
     }
     res.json(r.data);
+  });
+
+  app.patch("/api/calendar/events/:eventId", async (req, res) => {
+    if (!calendarClient || !CALENDAR_ID) {
+      return res
+        .status(503)
+        .json({ error: "Google Calendar not configured on the server." });
+    }
+    const eventId = decodeURIComponent(req.params.eventId);
+    const body = req.body || {};
+    const requestBody = {};
+    if (body.summary !== undefined) requestBody.summary = body.summary;
+    if (body.description !== undefined) requestBody.description = body.description;
+    const times = calendarTimeFields(body);
+    if (times) Object.assign(requestBody, times);
+    if (Object.keys(requestBody).length === 0) {
+      return res.status(400).json({ error: "No fields to update." });
+    }
+    try {
+      const resp = await calendarClient.events.patch({
+        calendarId: CALENDAR_ID,
+        eventId,
+        requestBody,
+      });
+      res.json({ ok: true, event: calendarEventResponse(resp.data) });
+    } catch (err) {
+      console.error("[calendar] Failed to update event:", err.message);
+      res.status(500).json({ error: "Failed to update calendar event." });
+    }
+  });
+
+  app.delete("/api/calendar/events/:eventId", async (req, res) => {
+    if (!calendarClient || !CALENDAR_ID) {
+      return res
+        .status(503)
+        .json({ error: "Google Calendar not configured on the server." });
+    }
+    const eventId = decodeURIComponent(req.params.eventId);
+    try {
+      await calendarClient.events.delete({
+        calendarId: CALENDAR_ID,
+        eventId,
+      });
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("[calendar] Failed to delete event:", err.message);
+      res.status(500).json({ error: "Failed to delete calendar event." });
+    }
   });
 
   return app;

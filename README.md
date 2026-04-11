@@ -86,6 +86,20 @@ In-memory state is shared by every browser connected to the **same server proces
 
 Jarvis polls `GET ./api/state` about every two seconds and merges `feed.personality` from the server into its system prompt.
 
+## Chat history API
+
+- `POST /api/chat` -- appends a message to the server-side chat log. Body: `{ "role": "user"|"assistant", "content": "..." }`. No auth required.
+- `DELETE /api/chat` -- clears all server-side chat history. Requires `Authorization: Bearer <ADMIN_SECRET>`. Returns `{ ok, revision, updatedAt }`.
+
+## Dev toolbar
+
+Add `?dev=1` to the Jarvis URL (e.g. `http://localhost:3000/jarvis.html?dev=1`) to enable a developer toolbar at the top of the page. It persists for the browser tab session via `sessionStorage`.
+
+**Toolbar actions:**
+
+- **Reload Prompt** -- invalidates the cached `jarvis-system-prompt.md` and re-fetches it from the server (cache-busted). Useful after editing the prompt file without reloading the page.
+- **Clear Chat** -- calls `DELETE /api/chat` to wipe server-side history, then resets the client-side conversation and DOM back to the initial greeting. On localhost the default dev secret is used automatically; on other hosts you'll be prompted for the admin secret once per session.
+
 ## Google Calendar
 
 Calendar integration is handled **server-side** via a Google Cloud service account -- no user-facing OAuth flow required.
@@ -99,10 +113,14 @@ Calendar integration is handled **server-side** via a Google Cloud service accou
 
 **Endpoints:**
 
-- `GET /api/calendar/events` -- returns today's events from the shared calendar.
-- `POST /api/calendar/events` -- creates an event. Body: `{ "summary": "...", "start": "YYYY-MM-DDTHH:MM:00", "end": "YYYY-MM-DDTHH:MM:00" }`.
+- `GET /api/calendar/events` -- returns today's events. Each event includes `id`, `summary`, `description`, `allDay`, `start`, and `end`.
+- `POST /api/calendar/events` -- creates an event.
+  - **Timed:** `{ "summary": "...", "start": "YYYY-MM-DDTHH:MM:00", "end": "YYYY-MM-DDTHH:MM:00" }`
+  - **All-day:** `{ "summary": "...", "allDay": true, "startDate": "YYYY-MM-DD" }` (optional `endDate` for multi-day; exclusive end like Google Calendar).
+- `PATCH /api/calendar/events/:eventId` -- updates an event. Body can include any subset of `summary`, `description`, and time fields (timed or all-day shape).
+- `DELETE /api/calendar/events/:eventId` -- deletes an event.
 
-Jarvis can also create events via natural language (e.g. "add a meeting today from 2-3").
+Jarvis can create, edit, and delete events via natural language (e.g. "add a meeting today from 2-3", "rename that event to Lunch", "delete the 3pm meeting").
 
 ## Deploy
 
