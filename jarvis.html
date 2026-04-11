@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>J.A.R.V.I.S.</title>
+  <title>PowerSleep — Jarvis</title>
   <script src="https://js.puter.com/v2/"></script>
   <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
   <script src="https://apis.google.com/js/api.js" async defer onload="gapiLoaded()"></script>
@@ -51,6 +51,7 @@
     }
 
     .logo span { color: var(--text-dim); font-weight: 400; font-size: .8rem; letter-spacing: .05em; }
+    a.logo { text-decoration: none; color: inherit; }
 
     .header-actions { display: flex; gap: .5rem; }
 
@@ -69,6 +70,7 @@
     }
     .btn:hover { border-color: var(--accent); box-shadow: var(--glow); }
     .btn.connected { border-color: var(--success); color: var(--success); }
+    a.btn { text-decoration: none; color: inherit; }
 
     .layout {
       flex: 1;
@@ -257,7 +259,7 @@
 <body>
 
 <header>
-  <div class="logo">J.A.R.V.I.S. <span>— Just A Rather Very Intelligent System</span></div>
+  <a class="logo" href="./index.html">PowerSleep</a>
   <div class="header-actions">
     <button class="btn" id="btnGoogleAuth" onclick="handleGoogleAuth()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -324,7 +326,7 @@
 // 3) WEATHER: Automatic via Open-Meteo. Falls back to Harrisonburg VA if
 //    geolocation is denied.
 //
-// 4) SERVING: `npm run dev` then visit http://localhost:5173/jarvis.html
+// 4) SERVING: `npm run dev` then open ./jarvis.html (same folder as index.html)
 //
 const GOOGLE_CLIENT_ID = '';  // e.g. '123456.apps.googleusercontent.com'
 const GOOGLE_API_KEY    = '';  // e.g. 'AIza...'
