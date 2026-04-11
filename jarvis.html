@@ -1469,6 +1469,9 @@
     >
       About Us
     </button>
+    <button type="button" class="btn" id="btnPuterAuth" title="Puter powers chat, voice, and text-to-speech">
+      Sign in to Puter
+    </button>
   </div>
 </header>
 
@@ -1678,7 +1681,7 @@
     <script>
       // ─── Config ───────────────────────────────────────────────────────────────────
       //
-      // PUTER: Click "Sign in to Puter" in the header for TTS, STT, and LLM.
+      // PUTER: Session is primed on page load (temp user when needed); header button retries full sign-in if a popup was blocked.
       // GOOGLE CALENDAR: Handled server-side via service account (see server.mjs).
       // WEATHER: Automatic via Open-Meteo. Falls back to Harrisonburg VA.
       //
@@ -1695,6 +1698,13 @@
       let isRecording = false;
       let mediaRecorder = null;
       let audioChunks = [];
+
+      /** First successful geolocation fix for this session (sidebar weather). */
+      let sessionGeoCoords = null;
+      /** Coalesces parallel callers (e.g. weather refresh) into one `getCurrentPosition`. */
+      let sessionGeoReadPromise = null;
+      /** User denied geolocation for this tab session (code 1); skip repeat prompts on weather poll. */
+      let sessionGeoDenied = false;
 
       /** Injected from shared server state (GET ./api/state); merged into system prompt / context. */
       let remotePersonality = "";
@@ -1748,14 +1758,81 @@
       const micBtn = document.getElementById("micBtn");
 
       // ─── Puter Auth ───────────────────────────────────────────────────────────────
+      const PUTER_CONNECTED_SVG =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>';
+
+      function applyPuterConnectedUi() {
+        const btn = document.getElementById("btnPuterAuth");
+        if (!btn) return;
+        btn.classList.add("connected");
+        btn.innerHTML = `${PUTER_CONNECTED_SVG}
+      Puter connected`;
+      }
+
+      /** Warm Puter session on load (temp user avoids waiting until first AI call). */
+      async function ensurePuterSessionOnLoad() {
+        if (typeof puter === "undefined" || !puter.auth) return;
+        try {
+          if (typeof puter.auth.isSignedIn === "function" && puter.auth.isSignedIn()) {
+            applyPuterConnectedUi();
+            return;
+          }
+        } catch (e) {
+          console.warn("Puter sign-in state:", e);
+        }
+        try {
+          await puter.auth.signIn({ attempt_temp_user_creation: true });
+          applyPuterConnectedUi();
+        } catch (e) {
+          console.warn("Puter auto sign-in:", e);
+        }
+      }
+
+      /** Request mic permission early so the first recording does not stall on a prompt. */
+      async function primeMicrophoneOnLoad() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach((t) => t.stop());
+        } catch (e) {
+          console.warn("Microphone not available at load:", e);
+        }
+      }
+
+      async function getSessionGeoCoords() {
+        if (sessionGeoCoords) return sessionGeoCoords;
+        if (sessionGeoDenied) return null;
+        if (sessionGeoReadPromise) return sessionGeoReadPromise;
+        if (!navigator.geolocation) return null;
+
+        sessionGeoReadPromise = (async () => {
+          try {
+            const pos = await new Promise((res, rej) =>
+              navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000, maximumAge: 0 }),
+            );
+            sessionGeoCoords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+            return sessionGeoCoords;
+          } catch (e) {
+            console.warn("Geolocation unavailable for weather", e);
+            if (e && Number(e.code) === 1) sessionGeoDenied = true;
+            return null;
+          } finally {
+            sessionGeoReadPromise = null;
+          }
+        })();
+
+        return sessionGeoReadPromise;
+      }
+
       async function handlePuterAuth() {
+        if (typeof puter === "undefined" || !puter.auth) {
+          setStatus("Puter.js did not load");
+          return;
+        }
         try {
           setStatus("Signing in to Puter...");
           await puter.auth.signIn();
-          document.getElementById("btnPuterAuth").classList.add("connected");
-          document.getElementById("btnPuterAuth").innerHTML = `
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
-      Puter Connected`;
+          applyPuterConnectedUi();
           setStatus("Puter connected");
         } catch (e) {
           setStatus("Puter sign-in failed: " + e.message);
@@ -2065,8 +2142,12 @@
       // ─── Weather (Open-Meteo, no API key) ────────────────────────────────────────
       async function fetchWeather() {
         try {
-          const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 }));
-          const { latitude, longitude } = pos.coords;
+          const coords = await getSessionGeoCoords();
+          if (!coords) {
+            await fetchWeatherFallback();
+            return;
+          }
+          const { latitude, longitude } = coords;
           const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=1&daily=temperature_2m_max,temperature_2m_min`;
           const resp = await fetch(url);
           const data = await resp.json();
@@ -3975,6 +4056,8 @@
 
       // ─── Init ─────────────────────────────────────────────────────────────────────
       window.addEventListener("load", () => {
+        void ensurePuterSessionOnLoad();
+        void primeMicrophoneOnLoad();
         fetchWeather();
         calendarViewDate = localIsoDate();
         updateCalendarDateLabel();
@@ -4002,6 +4085,9 @@
         });
 
         initDevToolbar();
+
+        const puterAuthBtn = document.getElementById("btnPuterAuth");
+        if (puterAuthBtn) puterAuthBtn.addEventListener("click", () => void handlePuterAuth());
       });
     </script>
   </body>
