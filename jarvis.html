@@ -1469,9 +1469,6 @@
     >
       About Us
     </button>
-    <button type="button" class="btn" id="btnPuterAuth" title="Puter powers chat, voice, and text-to-speech">
-      Sign in to Puter
-    </button>
   </div>
 </header>
 
@@ -1757,34 +1754,26 @@
       const textInput = document.getElementById("textInput");
       const micBtn = document.getElementById("micBtn");
 
-      // ─── Puter Auth ───────────────────────────────────────────────────────────────
-      const PUTER_CONNECTED_SVG =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>';
-
-      function applyPuterConnectedUi() {
-        const btn = document.getElementById("btnPuterAuth");
-        if (!btn) return;
-        btn.classList.add("connected");
-        btn.innerHTML = `${PUTER_CONNECTED_SVG}
-      Puter connected`;
-      }
-
-      /** Warm Puter session on load (temp user avoids waiting until first AI call). */
+      /** Same flow as the old “Sign in to Puter” control: interactive sign-in when not already signed in. */
       async function ensurePuterSessionOnLoad() {
-        if (typeof puter === "undefined" || !puter.auth) return;
+        if (typeof puter === "undefined" || !puter.auth) {
+          setStatus("Puter.js did not load");
+          return;
+        }
         try {
           if (typeof puter.auth.isSignedIn === "function" && puter.auth.isSignedIn()) {
-            applyPuterConnectedUi();
             return;
           }
         } catch (e) {
           console.warn("Puter sign-in state:", e);
         }
         try {
-          await puter.auth.signIn({ attempt_temp_user_creation: true });
-          applyPuterConnectedUi();
+          setStatus("Signing in to Puter...");
+          await puter.auth.signIn();
+          setStatus("Puter connected");
         } catch (e) {
-          console.warn("Puter auto sign-in:", e);
+          setStatus("Puter sign-in failed: " + (e && e.message ? e.message : String(e)));
+          console.warn("Puter sign-in:", e);
         }
       }
 
@@ -1822,21 +1811,6 @@
         })();
 
         return sessionGeoReadPromise;
-      }
-
-      async function handlePuterAuth() {
-        if (typeof puter === "undefined" || !puter.auth) {
-          setStatus("Puter.js did not load");
-          return;
-        }
-        try {
-          setStatus("Signing in to Puter...");
-          await puter.auth.signIn();
-          applyPuterConnectedUi();
-          setStatus("Puter connected");
-        } catch (e) {
-          setStatus("Puter sign-in failed: " + e.message);
-        }
       }
 
       // ─── Google Calendar (server-side via service account) ────────────────────────
@@ -4085,9 +4059,6 @@
         });
 
         initDevToolbar();
-
-        const puterAuthBtn = document.getElementById("btnPuterAuth");
-        if (puterAuthBtn) puterAuthBtn.addEventListener("click", () => void handlePuterAuth());
       });
     </script>
   </body>
