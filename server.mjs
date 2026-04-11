@@ -637,6 +637,35 @@ code,pre{background:#111827;color:#e2e8f0;padding:.5rem;border-radius:8px;displa
     });
   });
 
+  app.put("/api/spotify/player/volume", async (req, res) => {
+    if (!spotifyEnvConfigured()) {
+      return res.status(503).json({ error: "Spotify not configured on the server." });
+    }
+    let raw = req.query.volume_percent;
+    if (raw == null && req.body && req.body.volume_percent != null) {
+      raw = req.body.volume_percent;
+    }
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0 || n > 100) {
+      return res
+        .status(400)
+        .json({ error: "volume_percent must be a number from 0 to 100 (query or JSON body)." });
+    }
+    const deviceId = req.query.device_id;
+    /** @type {Record<string, string>} */
+    const query = { volume_percent: String(Math.round(n)) };
+    if (typeof deviceId === "string" && deviceId) {
+      query.device_id = deviceId;
+    }
+    const r = await spotifyApiRequest("PUT", "/me/player/volume", { query });
+    if (r.status === 204 || r.ok) {
+      return res.status(204).end();
+    }
+    return res.status(r.status >= 400 && r.status < 600 ? r.status : 502).json({
+      error: r.data?.error?.message || "Volume request failed.",
+    });
+  });
+
   app.post("/api/spotify/player/next", async (req, res) => {
     if (!spotifyEnvConfigured()) {
       return res.status(503).json({ error: "Spotify not configured on the server." });
