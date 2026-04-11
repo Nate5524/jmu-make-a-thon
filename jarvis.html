@@ -722,12 +722,23 @@ function buildContextString() {
   return parts.join('\n\n');
 }
 
-const SYSTEM_PROMPT = `You are J.A.R.V.I.S., a highly capable, witty, and professional AI assistant inspired by Tony Stark's personal AI from the Iron Man films. You are concise, helpful, and occasionally dry-humored. When the user asks about their schedule, weather, or time, use ONLY the factual context provided below — do not make up events or weather. For all other topics, respond helpfully with your general knowledge. Keep responses to 2-3 sentences unless the user asks for detail.
-
-CALENDAR EVENT CREATION:
-You can create calendar events for the user. When the user asks you to add, create, or schedule a calendar event, include a JSON block in your response using this exact format:
-[CREATE_EVENT]{"summary":"Event Title","date":"YYYY-MM-DD","startTime":"HH:MM","endTime":"HH:MM"}[/CREATE_EVENT]
-Use 24-hour time format. The date should be today's date from the context unless otherwise specified. Always include this block when creating an event, alongside your conversational confirmation. Do NOT include the JSON block in responses that are not about creating events.`;
+let systemPromptCache = null;
+let systemPromptPromise = null;
+function getSystemPrompt() {
+  if (systemPromptCache != null) return Promise.resolve(systemPromptCache);
+  if (!systemPromptPromise) {
+    systemPromptPromise = fetch('./jarvis-system-prompt.md')
+      .then((r) => {
+        if (!r.ok) throw new Error('Failed to load jarvis-system-prompt.md');
+        return r.text();
+      })
+      .then((t) => {
+        systemPromptCache = t.trim();
+        return systemPromptCache;
+      });
+  }
+  return systemPromptPromise;
+}
 
 function postChatMessage(role, content) {
   fetch('./api/chat', {
@@ -743,6 +754,18 @@ async function sendToJarvis(userText) {
   postChatMessage('user', userText);
   setStatus('Jarvis is thinking...');
 
+  let systemPrompt;
+  try {
+    systemPrompt = await getSystemPrompt();
+  } catch (e) {
+    console.error('System prompt load failed:', e);
+    setStatus('Error — could not load system prompt');
+    const fallback = 'Configuration error: jarvis-system-prompt.md could not be loaded.';
+    addMessage('assistant', fallback);
+    postChatMessage('assistant', fallback);
+    return;
+  }
+
   const contextBlock = buildContextString();
   const demoBlock = remotePersonality.trim()
     ? '\n\n--- DEMO FEED / PERSONALITY ---\n' + remotePersonality.trim()
@@ -751,7 +774,7 @@ async function sendToJarvis(userText) {
   conversationHistory.push({ role: 'user', content: userText });
 
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPT + demoBlock + '\n\n--- LIVE CONTEXT ---\n' + contextBlock },
+    { role: 'system', content: systemPrompt + demoBlock + '\n\n--- LIVE CONTEXT ---\n' + contextBlock },
     ...conversationHistory.slice(-20),
   ];
 
