@@ -948,6 +948,106 @@
         border-color: var(--text-dim);
       }
 
+      /* ---------- schedules ---------- */
+      .schedule-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.45rem;
+        padding: 0.45rem 0.55rem;
+        border: 1px solid var(--accent-dim);
+        border-radius: var(--radius);
+        font-size: 0.78rem;
+        margin-bottom: 0.35rem;
+      }
+      .schedule-item-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .schedule-item-label {
+        font-weight: 600;
+        color: var(--text);
+        word-break: break-word;
+      }
+      .schedule-item-meta {
+        color: var(--text-dim);
+        font-size: 0.7rem;
+        margin-top: 0.12rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 0.4rem;
+        align-items: center;
+      }
+      .schedule-badge {
+        display: inline-block;
+        padding: 0.08rem 0.32rem;
+        border-radius: 4px;
+        font-size: 0.6rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .schedule-badge--repeat {
+        background: rgba(56, 189, 248, 0.15);
+        color: var(--accent);
+      }
+      .schedule-badge--jarvis {
+        background: rgba(168, 85, 247, 0.15);
+        color: #a855f7;
+      }
+      .schedule-badge--llm {
+        background: rgba(251, 191, 36, 0.15);
+        color: #fbbf24;
+      }
+      .schedule-delete-btn {
+        padding: 0.2rem;
+        border: none;
+        background: transparent;
+        color: var(--text-dim);
+        cursor: pointer;
+        font-size: 0.85rem;
+        line-height: 1;
+        border-radius: 4px;
+        flex-shrink: 0;
+        transition: color 0.2s, background 0.2s;
+      }
+      .schedule-delete-btn:hover {
+        color: #ef4444;
+        background: rgba(239, 68, 68, 0.1);
+      }
+      #scheduleFormContainer .event-form select {
+        width: 100%;
+        padding: 0.35rem 0.45rem;
+        border: 1px solid var(--accent-dim);
+        border-radius: 6px;
+        background: var(--surface);
+        color: var(--text);
+        font-size: 0.78rem;
+      }
+      #scheduleFormContainer .event-form .mode-radios {
+        display: flex;
+        gap: 0.7rem;
+        font-size: 0.75rem;
+        color: var(--text-dim);
+      }
+      #scheduleFormContainer .event-form .mode-radios label {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        cursor: pointer;
+      }
+      #scheduleFormContainer .event-form textarea {
+        width: 100%;
+        min-height: 2.6rem;
+        padding: 0.35rem 0.45rem;
+        border: 1px solid var(--accent-dim);
+        border-radius: 6px;
+        background: var(--surface);
+        color: var(--text);
+        font-size: 0.78rem;
+        font-family: inherit;
+        resize: vertical;
+      }
+
       /* dev toolbar */
       #devToolbar {
         display: flex;
@@ -1154,6 +1254,51 @@
           <h3>Smart home (demo)</h3>
           <div id="smartHomeContent"><span class="no-items">Loading demo state…</span></div>
         </div>
+        <div class="card" id="schedulesCard">
+          <h3>Scheduled</h3>
+          <div id="schedulesContent"><span class="no-items">No scheduled items</span></div>
+          <div id="addScheduleArea">
+            <button class="add-event-btn" onclick="toggleScheduleForm()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Add Schedule
+            </button>
+            <div id="scheduleFormContainer" style="display: none">
+              <div class="event-form">
+                <input type="text" id="schedLabel" placeholder="Label (e.g. Morning briefing)" />
+                <div class="row">
+                  <input type="date" id="schedDate" />
+                  <input type="time" id="schedTime" />
+                </div>
+                <select id="schedRepeat">
+                  <option value="once">Once</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+                <select id="schedWeekday" style="display: none">
+                  <option value="0">Sunday</option>
+                  <option value="1">Monday</option>
+                  <option value="2">Tuesday</option>
+                  <option value="3">Wednesday</option>
+                  <option value="4">Thursday</option>
+                  <option value="5">Friday</option>
+                  <option value="6">Saturday</option>
+                </select>
+                <div class="mode-radios">
+                  <label><input type="radio" name="schedMode" value="static" checked /> Reminder text</label>
+                  <label><input type="radio" name="schedMode" value="llm_followup" /> Jarvis responds</label>
+                </div>
+                <textarea id="schedText" placeholder="Message text or instruction for Jarvis"></textarea>
+                <div class="event-form-actions">
+                  <button class="cancel-btn" onclick="cancelScheduleForm()">Cancel</button>
+                  <button class="save-btn" onclick="submitScheduleForm()">Save</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </aside>
 
       <!-- Chat area -->
@@ -1217,6 +1362,11 @@
 
       /** One-line Spotify summary for the LLM (updated when the sidebar player refreshes). */
       let spotifyContextHint = "";
+
+      /** @type {Array<Object>} Schedules from server state, rendered in sidebar. */
+      let remoteSchedules = [];
+      /** Serialized speech to prevent overlapping TTS. */
+      let speechQueue = Promise.resolve();
 
       /** Always Blinds + Ambient lights; map legacy `desk` → blinds position (Up/Down). */
       function normalizeSmartHomeClient(rawDevices) {
@@ -1719,6 +1869,17 @@
           parts.push(spotifyContextHint.trim());
         }
 
+        if (remoteSchedules.length) {
+          const lines = ["Upcoming scheduled items:"];
+          for (const s of remoteSchedules) {
+            const when = new Date(s.nextRunAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+            const repeatTag = s.repeat !== "once" ? ` (${s.repeat})` : "";
+            const by = s.createdBy === "jarvis" ? " [by Jarvis]" : "";
+            lines.push(`- [sched:${s.id}] ${when}${repeatTag}${by}: ${s.label || "(no label)"}`);
+          }
+          parts.push(lines.join("\n"));
+        }
+
         return parts.join("\n\n");
       }
 
@@ -1846,6 +2007,47 @@
             await spotifyQueueUriStrict(t.uri);
             const label = trackLabelFromSpotifyItem(t);
             return { ok: true, action: "queue_track", track: label };
+          }
+          case "create_schedule": {
+            const tz = clientTimezone();
+            let nextRunAt;
+            if (typeof args.delayMinutes === "number" && args.delayMinutes > 0) {
+              nextRunAt = new Date(Date.now() + args.delayMinutes * 60000).toISOString();
+            } else if (args.date && args.time) {
+              nextRunAt = wallClockToUtcIso(args.date, args.time, tz);
+            } else {
+              throw new Error("Provide date+time or delayMinutes");
+            }
+            const body = {
+              mode: args.mode || "static",
+              label: args.label || "",
+              nextRunAt,
+              timezone: tz,
+              repeat: args.repeat || "once",
+              wallClockTime: args.time ? args.time.slice(0, 5) : new Date(nextRunAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
+              createdBy: "jarvis",
+              speak: args.speak !== false,
+            };
+            if (args.repeat === "weekly" && typeof args.weekday === "number") body.weekday = args.weekday;
+            if (args.mode === "static") {
+              body.storedAssistantText = args.storedAssistantText || args.label;
+            } else {
+              body.storedInstruction = args.storedInstruction || args.label;
+              if (Array.isArray(args.toolSteps)) body.toolSteps = args.toolSteps;
+            }
+            const r = await fetch("./api/schedules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || "Failed to create schedule");
+            if (data.schedule) { remoteSchedules.push(data.schedule); renderSchedules(); }
+            return { ok: true, id: data.schedule?.id, nextRunAt: data.schedule?.nextRunAt };
+          }
+          case "cancel_schedule": {
+            const r = await fetch(`./api/schedules/${encodeURIComponent(args.id)}`, { method: "DELETE" });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || "Schedule not found");
+            remoteSchedules = remoteSchedules.filter((s) => s.id !== args.id);
+            renderSchedules();
+            return { ok: true };
           }
           default:
             throw new Error("Unknown tool: " + name);
@@ -2012,7 +2214,7 @@
           addMessage("assistant", reply);
           postChatMessage("assistant", reply);
           setStatus("Speaking...");
-          await speakText(reply);
+          await queueSpeech(reply);
           setStatus("Ready");
         } catch (e) {
           console.error("LLM error:", e);
@@ -2044,6 +2246,104 @@
             utter.onerror = resolve;
             speechSynthesis.speak(utter);
           });
+        }
+      }
+
+      function queueSpeech(text) {
+        speechQueue = speechQueue.then(() => speakText(text)).catch(() => {});
+        return speechQueue;
+      }
+
+      // ─── Scheduled job execution ─────────────────────────────────────────────────
+      function wallClockToUtcIso(dateStr, timeStr, timezone) {
+        const guess = new Date(`${dateStr}T${timeStr}:00Z`);
+        const utcFmt = guess.toLocaleString("en-US", { timeZone: "UTC" });
+        const tzFmt = guess.toLocaleString("en-US", { timeZone: timezone });
+        return new Date(guess.getTime() - (new Date(tzFmt).getTime() - new Date(utcFmt).getTime())).toISOString();
+      }
+
+      function clientTimezone() {
+        try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return "UTC"; }
+      }
+
+      async function runScheduledJob(job) {
+        const scheduleShouldSpeak = job.speak !== false;
+        if (job.mode === "static") {
+          addMessage("assistant", job.storedAssistantText);
+          postChatMessage("assistant", job.storedAssistantText);
+          conversationHistory.push({ role: "assistant", content: job.storedAssistantText });
+          if (scheduleShouldSpeak && String(job.storedAssistantText || "").trim()) {
+            queueSpeech(String(job.storedAssistantText));
+          }
+          return;
+        }
+
+        // llm_followup: run toolSteps then ask the LLM to compose a response
+        const toolResults = [];
+        if (Array.isArray(job.toolSteps)) {
+          for (const step of job.toolSteps) {
+            try {
+              const out = await dispatchJarvisTool(step.name, step.args || {});
+              toolResults.push({ tool: step.name, result: out });
+            } catch (err) {
+              toolResults.push({ tool: step.name, error: err.message || String(err) });
+            }
+          }
+        }
+
+        let systemPrompt;
+        try { systemPrompt = await getSystemPrompt(); } catch { systemPrompt = ""; }
+        const contextBlock = buildContextString();
+        const repeatLabel = job.repeat === "once" ? "one-time" : job.repeat;
+        const preamble = [
+          `[SCHEDULED MESSAGE — triggered ${new Date().toLocaleString()} | ${repeatLabel} schedule | created by ${job.createdBy}]`,
+          `Instruction: ${job.storedInstruction}`,
+        ];
+        if (toolResults.length) {
+          preamble.push("Tool results:\n" + JSON.stringify(toolResults, null, 2));
+        }
+
+        const messages = [
+          { role: "system", content: systemPrompt + "\n\n--- LIVE CONTEXT ---\n" + contextBlock },
+          { role: "user", content: preamble.join("\n\n") },
+        ];
+
+        // Use a reduced tool set so the scheduled run can act but cannot create new schedules
+        const reducedTools = (typeof JARVIS_TOOLS !== "undefined" && Array.isArray(JARVIS_TOOLS))
+          ? JARVIS_TOOLS.filter((t) => {
+              const n = t?.function?.name;
+              return n !== "create_schedule" && n !== "cancel_schedule";
+            })
+          : [];
+        const chatOptions = { model: "openai/gpt-5-nano", stream: false, tools: reducedTools.length ? reducedTools : undefined };
+
+        try {
+          const reply = await completeJarvisWithTools(messages, chatOptions);
+          conversationHistory.push({ role: "assistant", content: reply });
+          addMessage("assistant", reply);
+          postChatMessage("assistant", reply);
+          if (scheduleShouldSpeak) queueSpeech(reply);
+        } catch (err) {
+          console.error("Scheduled job LLM error:", err);
+          const fallback = `[Scheduled: ${job.label || "job"}] Sorry, I couldn't complete that scheduled task.`;
+          addMessage("assistant", fallback);
+          postChatMessage("assistant", fallback);
+          conversationHistory.push({ role: "assistant", content: fallback });
+          if (scheduleShouldSpeak) queueSpeech(fallback);
+        }
+      }
+
+      async function consumeAndRunScheduledJobs() {
+        try {
+          const r = await fetch("./api/schedules/consume-due", { method: "POST" });
+          if (!r.ok) return;
+          const data = await r.json();
+          if (!Array.isArray(data.jobs) || !data.jobs.length) return;
+          for (const job of data.jobs) {
+            await runScheduledJob(job);
+          }
+        } catch (e) {
+          console.warn("consume-due failed:", e);
         }
       }
 
@@ -2652,6 +2952,113 @@
         el.innerHTML = `<div class="smart-home-list">${rows}</div>`;
       }
 
+      function renderSchedules() {
+        const el = document.getElementById("schedulesContent");
+        if (!el) return;
+        if (!remoteSchedules.length) {
+          el.innerHTML = '<span class="no-items">No scheduled items</span>';
+          return;
+        }
+        const items = remoteSchedules.map((s) => {
+          const when = new Date(s.nextRunAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+          const badges = [];
+          if (s.repeat !== "once") badges.push(`<span class="schedule-badge schedule-badge--repeat">${escapeHtml(s.repeat)}</span>`);
+          if (s.createdBy === "jarvis") badges.push('<span class="schedule-badge schedule-badge--jarvis">Jarvis</span>');
+          if (s.mode === "llm_followup") badges.push('<span class="schedule-badge schedule-badge--llm">AI</span>');
+          return `<div class="schedule-item">
+            <div class="schedule-item-info">
+              <div class="schedule-item-label">${escapeHtml(s.label || "(no label)")}</div>
+              <div class="schedule-item-meta"><span>${when}</span>${badges.join("")}</div>
+            </div>
+            <button class="schedule-delete-btn" data-schedule-id="${escapeHtml(s.id)}" title="Delete">&times;</button>
+          </div>`;
+        }).join("");
+        el.innerHTML = items;
+      }
+
+      document.getElementById("schedulesContent").addEventListener("click", async (e) => {
+        const btn = e.target.closest(".schedule-delete-btn");
+        if (!btn) return;
+        const id = btn.dataset.scheduleId;
+        if (!id) return;
+        try {
+          await fetch(`./api/schedules/${encodeURIComponent(id)}`, { method: "DELETE" });
+          remoteSchedules = remoteSchedules.filter((s) => s.id !== id);
+          renderSchedules();
+        } catch (err) {
+          console.warn("Delete schedule failed:", err);
+        }
+      });
+
+      document.getElementById("schedRepeat").addEventListener("change", (e) => {
+        document.getElementById("schedWeekday").style.display = e.target.value === "weekly" ? "" : "none";
+      });
+
+      function toggleScheduleForm() {
+        const c = document.getElementById("scheduleFormContainer");
+        const showing = c.style.display !== "none";
+        c.style.display = showing ? "none" : "";
+        if (!showing) {
+          document.getElementById("schedDate").value = localIsoDate();
+          document.getElementById("schedTime").value = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+        }
+      }
+
+      function cancelScheduleForm() {
+        document.getElementById("scheduleFormContainer").style.display = "none";
+      }
+
+      async function submitScheduleForm() {
+        const label = document.getElementById("schedLabel").value.trim();
+        const dateVal = document.getElementById("schedDate").value;
+        const timeVal = document.getElementById("schedTime").value;
+        const repeat = document.getElementById("schedRepeat").value;
+        const weekday = Number(document.getElementById("schedWeekday").value);
+        const mode = document.querySelector('input[name="schedMode"]:checked')?.value || "static";
+        const text = document.getElementById("schedText").value.trim();
+
+        if (!label) { setStatus("Schedule needs a label"); return; }
+        if (!dateVal || !timeVal) { setStatus("Pick a date and time"); return; }
+        if (!text) { setStatus("Enter a message or instruction"); return; }
+
+        const tz = clientTimezone();
+        const nextRunAt = wallClockToUtcIso(dateVal, timeVal, tz);
+
+        const body = {
+          label,
+          nextRunAt,
+          timezone: tz,
+          repeat,
+          wallClockTime: timeVal.slice(0, 5),
+          createdBy: "user",
+          mode,
+          speak: true,
+        };
+        if (repeat === "weekly") body.weekday = weekday;
+        if (mode === "static") {
+          body.storedAssistantText = text;
+        } else {
+          body.storedInstruction = text;
+        }
+
+        try {
+          const r = await fetch("./api/schedules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+          const data = await r.json();
+          if (!r.ok) { setStatus(data.error || "Failed to create schedule"); return; }
+          if (data.schedule) {
+            remoteSchedules.push(data.schedule);
+            renderSchedules();
+          }
+          cancelScheduleForm();
+          document.getElementById("schedLabel").value = "";
+          document.getElementById("schedText").value = "";
+          setStatus("Schedule created");
+        } catch (err) {
+          setStatus("Failed to create schedule");
+          console.warn(err);
+        }
+      }
+
       function syncChatFromServer(serverHistory) {
         if (!Array.isArray(serverHistory)) return;
         const localLen = conversationHistory.length;
@@ -2679,6 +3086,10 @@
           remoteSmartHome = normalized;
           renderSmartHome();
           syncChatFromServer(data.chatHistory);
+          if (Array.isArray(data.schedules)) {
+            remoteSchedules = data.schedules;
+            renderSchedules();
+          }
         } catch (e) {
           console.warn("Demo state poll failed", e);
           const el = document.getElementById("smartHomeContent");
@@ -2916,6 +3327,8 @@
         setInterval(fetchSpotifyPlayer, 4000);
         pollDemoState();
         setInterval(pollDemoState, 2000);
+        consumeAndRunScheduledJobs();
+        setInterval(consumeAndRunScheduledJobs, 3000);
         setInterval(() => {
           fetchCalendarEvents();
           fetchCalendarContextEvents();

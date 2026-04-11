@@ -4,7 +4,7 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { google } from "googleapis";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -227,6 +227,8 @@ let state = {
   smartHome: defaultSmartHome(),
   /** @type {Array<{ role: string, content: string }>} */
   chatHistory: [],
+  /** @type {Array<Object>} Scheduled jobs (one-shot and repeating). */
+  schedules: [],
 };
 
 reconcileSmartHomeToCanonical();
@@ -243,6 +245,7 @@ function createApp() {
       feed: { ...state.feed },
       smartHome: JSON.parse(JSON.stringify(state.smartHome)),
       chatHistory: state.chatHistory,
+      schedules: state.schedules,
     });
   });
 
@@ -352,6 +355,118 @@ function createApp() {
       revision: state.revision,
       updatedAt: state.updatedAt,
     });
+  });
+
+  // ─── Schedules ───────────────────────────────────────────────────────────────
+  const ALLOWED_SCHEDULE_TOOL_NAMES = new Set([
+    "create_calendar_event", "delete_calendar_event", "edit_calendar_event",
+    "set_demo_smart_home_device",
+    "spotify_play", "spotify_pause", "spotify_skip_next", "spotify_skip_previous",
+    "spotify_play_track", "spotify_queue_track",
+  ]);
+
+  function advanceScheduleNextRun(schedule) {
+    if (schedule.repeat === "once") return null;
+    const now = Date.now();
+    const periodMs = (schedule.repeat === "daily" ? 1 : 7) * 86_400_000;
+    let next = new Date(schedule.nextRunAt).getTime();
+    do { next += periodMs; } while (next <= now);
+    return new Date(next).toISOString();
+  }
+
+  app.post("/api/schedules", (req, res) => {
+    const b = req.body || {};
+    if (!["static", "llm_followup"].includes(b.mode)) {
+      return res.status(400).json({ error: "mode must be 'static' or 'llm_followup'" });
+    }
+    if (!b.nextRunAt || Number.isNaN(new Date(b.nextRunAt).getTime())) {
+      return res.status(400).json({ error: "nextRunAt must be a valid ISO datetime" });
+    }
+    if (!["once", "daily", "weekly"].includes(b.repeat)) {
+      return res.status(400).json({ error: "repeat must be 'once', 'daily', or 'weekly'" });
+    }
+    if (b.repeat === "weekly") {
+      const wd = b.weekday;
+      if (typeof wd !== "number" || wd < 0 || wd > 6 || !Number.isInteger(wd)) {
+        return res.status(400).json({ error: "weekday (0-6) required for weekly schedules" });
+      }
+    }
+    if (b.repeat !== "once" && (typeof b.wallClockTime !== "string" || !/^\d{2}:\d{2}$/.test(b.wallClockTime))) {
+      return res.status(400).json({ error: "wallClockTime (HH:MM) required for repeating schedules" });
+    }
+    if (b.mode === "static" && typeof b.storedAssistantText !== "string") {
+      return res.status(400).json({ error: "storedAssistantText required for static mode" });
+    }
+    if (b.mode === "llm_followup" && typeof b.storedInstruction !== "string") {
+      return res.status(400).json({ error: "storedInstruction required for llm_followup mode" });
+    }
+    if (Array.isArray(b.toolSteps)) {
+      for (const step of b.toolSteps) {
+        if (!step || !ALLOWED_SCHEDULE_TOOL_NAMES.has(step.name)) {
+          return res.status(400).json({ error: `Tool '${step?.name}' not allowed in schedules` });
+        }
+      }
+    }
+
+    const schedule = {
+      id: randomUUID(),
+      nextRunAt: new Date(b.nextRunAt).toISOString(),
+      timezone: typeof b.timezone === "string" ? b.timezone : "UTC",
+      repeat: b.repeat,
+      wallClockTime: b.wallClockTime || null,
+      weekday: b.repeat === "weekly" ? b.weekday : undefined,
+      createdBy: b.createdBy === "jarvis" ? "jarvis" : "user",
+      label: typeof b.label === "string" ? b.label : "",
+      mode: b.mode,
+    };
+
+    if (b.mode === "static") {
+      schedule.storedAssistantText = b.storedAssistantText;
+      schedule.speak = b.speak !== false;
+    } else {
+      schedule.storedInstruction = b.storedInstruction;
+      schedule.toolSteps = Array.isArray(b.toolSteps)
+        ? b.toolSteps.filter((s) => s && ALLOWED_SCHEDULE_TOOL_NAMES.has(s.name))
+        : [];
+      schedule.speak = b.speak !== false;
+    }
+
+    state.schedules.push(schedule);
+    state.revision += 1;
+    state.updatedAt = new Date().toISOString();
+    res.json({ ok: true, schedule, revision: state.revision });
+  });
+
+  app.delete("/api/schedules/:id", (req, res) => {
+    const idx = state.schedules.findIndex((s) => s.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: "Schedule not found." });
+    state.schedules.splice(idx, 1);
+    state.revision += 1;
+    state.updatedAt = new Date().toISOString();
+    res.json({ ok: true, revision: state.revision });
+  });
+
+  app.post("/api/schedules/consume-due", (_req, res) => {
+    const now = new Date();
+    const due = [];
+    const remaining = [];
+    for (const s of state.schedules) {
+      if (new Date(s.nextRunAt) <= now) {
+        due.push({ ...s });
+        if (s.repeat !== "once") {
+          const next = advanceScheduleNextRun(s);
+          if (next) remaining.push({ ...s, nextRunAt: next });
+        }
+      } else {
+        remaining.push(s);
+      }
+    }
+    if (due.length) {
+      state.schedules = remaining;
+      state.revision += 1;
+      state.updatedAt = new Date().toISOString();
+    }
+    res.json({ jobs: due, revision: state.revision });
   });
 
   // ─── Calendar endpoints ────────────────────────────────────────────────────
