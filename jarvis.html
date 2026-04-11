@@ -87,7 +87,7 @@
       background: var(--surface);
       border-right: 1px solid var(--accent-dim);
       padding: 1rem;
-      overflow-y: scroll;
+      overflow-y: auto;
       min-height: 0;
       display: flex;
       flex-direction: column;
@@ -165,24 +165,38 @@
     .event-summary { color: var(--text); }
     .no-items { color: var(--text-dim); font-size: .8rem; font-style: italic; }
 
-    .smart-home-grid {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      column-gap: .75rem;
-      row-gap: .45rem;
-      align-items: center;
+    .smart-home-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
     }
+    #smartHomeCard { container-type: inline-size; }
+    .smart-home-row {
+      display: flex;
+      align-items: center;
+      gap: .25rem .75rem;
+      padding: .55rem 0;
+      border-bottom: 1px solid rgba(30,58,95,.4);
+    }
+    .smart-home-row:last-child { border-bottom: none; }
     .smart-home-row__name {
       font-size: .85rem;
       font-weight: 600;
       color: var(--text);
       white-space: nowrap;
+      flex: 1;
+      min-width: 0;
     }
     .smart-home-row__controls {
       display: flex;
       align-items: center;
       gap: .65rem;
-      justify-self: end;
+    }
+    @container (max-width: 195px) {
+      .smart-home-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
     }
     .smart-home-end-label {
       font-size: .75rem;
@@ -1043,18 +1057,20 @@ function renderSmartHome() {
     const leftLabel = isBlindsDevice(d) ? 'Down' : 'Off';
     const rightLabel = isBlindsDevice(d) ? 'Up' : 'On';
     return `
-      <div class="smart-home-row__name">${escapeHtml(d.name)}</div>
-      <div class="smart-home-row__controls">
-        <span class="smart-home-end-label smart-home-end-label--left">${leftLabel}</span>
-        <label class="smart-home-toggle">
-          <input type="checkbox" class="smart-home-slider" data-device-id="${idEsc}" ${v ? 'checked' : ''} aria-label="${escapeHtml(aria)}" />
-          <span class="smart-home-toggle__track"></span>
-          <span class="smart-home-toggle__thumb"></span>
-        </label>
-        <span class="smart-home-end-label smart-home-end-label--right">${rightLabel}</span>
+      <div class="smart-home-row">
+        <div class="smart-home-row__name">${escapeHtml(d.name)}</div>
+        <div class="smart-home-row__controls">
+          <span class="smart-home-end-label smart-home-end-label--left">${leftLabel}</span>
+          <label class="smart-home-toggle">
+            <input type="checkbox" class="smart-home-slider" data-device-id="${idEsc}" ${v ? 'checked' : ''} aria-label="${escapeHtml(aria)}" />
+            <span class="smart-home-toggle__track"></span>
+            <span class="smart-home-toggle__thumb"></span>
+          </label>
+          <span class="smart-home-end-label smart-home-end-label--right">${rightLabel}</span>
+        </div>
       </div>`;
   }).join('');
-  el.innerHTML = `<div class="smart-home-grid">${rows}</div>`;
+  el.innerHTML = `<div class="smart-home-list">${rows}</div>`;
 }
 
 function syncChatFromServer(serverHistory) {
