@@ -2667,6 +2667,17 @@
       }
 
       // ─── TTS ──────────────────────────────────────────────────────────────────────
+      /** Browser TTS (works without a user gesture; scheduled reminders use this when neural audio is blocked). */
+      function speakWithWebSpeech(text) {
+        return new Promise((resolve) => {
+          const utter = new SpeechSynthesisUtterance(text);
+          utter.rate = 1.05;
+          utter.onend = resolve;
+          utter.onerror = resolve;
+          speechSynthesis.speak(utter);
+        });
+      }
+
       async function speakText(text) {
         try {
           const audio = await puter.ai.txt2speech(text, {
@@ -2675,18 +2686,15 @@
           });
           return new Promise((resolve) => {
             audio.onended = resolve;
-            audio.onerror = resolve;
-            audio.play().catch(resolve);
+            audio.onerror = () => speakWithWebSpeech(text).then(resolve);
+            audio.play().catch(() => {
+              // Neural TTS uses HTMLAudioElement; autoplay policy often blocks play() with no recent user gesture (e.g. fired schedules).
+              speakWithWebSpeech(text).then(resolve);
+            });
           });
         } catch (e) {
           console.warn("TTS error, falling back to browser speech synthesis:", e);
-          return new Promise((resolve) => {
-            const utter = new SpeechSynthesisUtterance(text);
-            utter.rate = 1.05;
-            utter.onend = resolve;
-            utter.onerror = resolve;
-            speechSynthesis.speak(utter);
-          });
+          return speakWithWebSpeech(text);
         }
       }
 
