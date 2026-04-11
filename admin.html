@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PowerSleep — Demo controls</title>
+  <title>PowerSleep — Dev smart home</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -110,19 +110,13 @@
     </nav>
   </header>
   <main>
-    <h1>Demo controls</h1>
-    <p class="hint" style="margin-bottom:1rem">Shared demo state for this server. Edits apply to every client connected to the same process. Use the admin key from your <code style="color:var(--accent)">.env</code> (<code style="color:var(--accent)">ADMIN_SECRET</code>); in local dev the default is <code style="color:var(--accent)">dev-demo-secret</code> if unset.</p>
+    <h1>Dev — smart home seed</h1>
+    <p class="hint" style="margin-bottom:1rem">Internal page (not linked in the app). Devices: blinds and ambient lights only. Use <code style="color:var(--accent)">ADMIN_SECRET</code> from <code style="color:var(--accent)">.env</code>; in local dev the default is <code style="color:var(--accent)">dev-demo-secret</code> if unset. In production, set <code style="color:var(--accent)">ENABLE_ADMIN_UI=true</code> to serve this file.</p>
 
     <div class="card">
       <h2>Admin key</h2>
       <label for="adminKey">Bearer token (stored in session for this tab)</label>
       <input type="password" id="adminKey" placeholder="dev-demo-secret" autocomplete="off" />
-    </div>
-
-    <div class="card">
-      <h2>Jarvis feed / personality</h2>
-      <label for="personality">Extra instructions (merged into Jarvis system prompt)</label>
-      <textarea id="personality" placeholder="e.g. Emphasize sleep hygiene and campus resources. Stay PG-13."></textarea>
     </div>
 
     <div class="card">
@@ -179,10 +173,9 @@
     async function loadState() {
       setStatus('Loading…');
       try {
-        const r = await fetch('/api/state');
+        const r = await fetch('./api/state');
         if (!r.ok) throw new Error('GET failed');
         const data = await r.json();
-        document.getElementById('personality').value = data.feed?.personality || '';
         renderDevices(data.smartHome?.devices || []);
         document.getElementById('revLine').textContent = 'revision ' + data.revision + ' · ' + (data.updatedAt || '');
         setStatus('', '');
@@ -201,10 +194,9 @@
       setStatus('Saving…');
       try {
         const body = {
-          feed: { personality: document.getElementById('personality').value },
           smartHome: { devices: collectDevices() },
         };
-        const r = await fetch('/api/state', {
+        const r = await fetch('./api/state', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
