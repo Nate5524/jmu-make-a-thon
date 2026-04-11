@@ -3,3 +3,5 @@ dist
 .env
 .DS_Store
 *.local
+# keep service account credentials out of repo
+jmu-make-a-thon-97645ef3d37e.json 
