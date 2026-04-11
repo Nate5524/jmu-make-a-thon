@@ -65,7 +65,7 @@ var JARVIS_TOOLS = [
     function: {
       name: 'set_demo_smart_home_device',
       description:
-        'Set the demo smart home devices shown in the sidebar. Device `ambient` is the ambient lights (on/off). Device `blinds`: on=true means blinds raised/up, on=false means lowered/down.',
+        'Set the demo smart home devices shown in the sidebar. Device `ambient` is the lights (on/off). Device `blinds`: on=true means blinds raised/up, on=false means lowered/down.',
       parameters: {
         type: 'object',
         properties: {

@@ -177,7 +177,7 @@ function defaultSmartHome() {
   return {
     devices: [
       { id: "blinds", name: "Blinds", on: false },
-      { id: "ambient", name: "Ambient lights", on: true },
+      { id: "ambient", name: "Lights", on: true },
     ],
   };
 }
@@ -191,7 +191,7 @@ function normalizeSmartHomeDevices(devices) {
   }));
 }
 
-/** Drop legacy devices (e.g. desk lamp), map desk → blinds once, always expose Blinds + Ambient lights. */
+/** Drop legacy devices (e.g. desk lamp), map desk → blinds once, always expose Blinds + Lights. */
 function reconcileSmartHomeToCanonical() {
   const prev = Array.isArray(state.smartHome?.devices) ? state.smartHome.devices : [];
   const before = JSON.stringify(prev);
