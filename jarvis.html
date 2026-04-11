@@ -93,37 +93,93 @@
       flex-direction: column;
       gap: 1rem;
     }
-    .sidebar::-webkit-scrollbar {
+    .sidebar,
+    .music-results,
+    .messages {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(148,163,184,.35) transparent;
+    }
+
+    .sidebar::-webkit-scrollbar,
+    .music-results::-webkit-scrollbar,
+    .messages::-webkit-scrollbar {
       width: 12px;
+      height: 12px;
       background: transparent;
     }
-    .sidebar::-webkit-scrollbar-thumb {
+    .sidebar::-webkit-scrollbar-thumb,
+    .music-results::-webkit-scrollbar-thumb,
+    .messages::-webkit-scrollbar-thumb {
       background: rgba(148,163,184,.3);
       border-radius: 3px;
       background-clip: padding-box;
       border-left: 3px solid transparent;
       border-right: 3px solid transparent;
+      border-top: 3px solid transparent;
+      border-bottom: 3px solid transparent;
     }
-    .sidebar::-webkit-scrollbar-button:single-button {
+    /* Hide WebKit’s inner button slots so only real end arrows show (no blank “arrows”). */
+    .sidebar::-webkit-scrollbar-button:vertical:start:increment,
+    .sidebar::-webkit-scrollbar-button:vertical:end:decrement,
+    .music-results::-webkit-scrollbar-button:vertical:start:increment,
+    .music-results::-webkit-scrollbar-button:vertical:end:decrement,
+    .messages::-webkit-scrollbar-button:vertical:start:increment,
+    .messages::-webkit-scrollbar-button:vertical:end:decrement,
+    .sidebar::-webkit-scrollbar-button:horizontal:start:increment,
+    .sidebar::-webkit-scrollbar-button:horizontal:end:decrement,
+    .music-results::-webkit-scrollbar-button:horizontal:start:increment,
+    .music-results::-webkit-scrollbar-button:horizontal:end:decrement,
+    .messages::-webkit-scrollbar-button:horizontal:start:increment,
+    .messages::-webkit-scrollbar-button:horizontal:end:decrement {
+      display: none;
+      width: 0;
+      height: 0;
+    }
+    .sidebar::-webkit-scrollbar-button:single-button,
+    .music-results::-webkit-scrollbar-button:single-button,
+    .messages::-webkit-scrollbar-button:single-button {
       display: block;
-      width: 12px;
       background-color: var(--surface);
       background-size: 6px 6px;
       background-repeat: no-repeat;
       cursor: pointer;
     }
-    .sidebar::-webkit-scrollbar-button:single-button:hover {
+    .sidebar::-webkit-scrollbar-button:single-button:hover,
+    .music-results::-webkit-scrollbar-button:single-button:hover,
+    .messages::-webkit-scrollbar-button:single-button:hover {
       background-color: var(--surface-2);
     }
-    .sidebar::-webkit-scrollbar-button:single-button:vertical:decrement {
+    .sidebar::-webkit-scrollbar-button:single-button:vertical:decrement,
+    .music-results::-webkit-scrollbar-button:single-button:vertical:decrement,
+    .messages::-webkit-scrollbar-button:single-button:vertical:decrement {
+      width: 12px;
       height: 20px;
       background-position: center bottom 4px;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1 7L5 3l4 4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     }
-    .sidebar::-webkit-scrollbar-button:single-button:vertical:increment {
+    .sidebar::-webkit-scrollbar-button:single-button:vertical:increment,
+    .music-results::-webkit-scrollbar-button:single-button:vertical:increment,
+    .messages::-webkit-scrollbar-button:single-button:vertical:increment {
+      width: 12px;
       height: 20px;
       background-position: center top 4px;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1 3L5 7l4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+    .sidebar::-webkit-scrollbar-button:single-button:horizontal:decrement,
+    .music-results::-webkit-scrollbar-button:single-button:horizontal:decrement,
+    .messages::-webkit-scrollbar-button:single-button:horizontal:decrement {
+      width: 20px;
+      height: 12px;
+      background-position: right 4px center;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M7 1L3 5l4 4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+    .sidebar::-webkit-scrollbar-button:single-button:horizontal:increment,
+    .music-results::-webkit-scrollbar-button:single-button:horizontal:increment,
+    .messages::-webkit-scrollbar-button:single-button:horizontal:increment {
+      width: 20px;
+      height: 12px;
+      background-position: left 4px center;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M3 1l4 4-4 4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     }
 
     .card {
