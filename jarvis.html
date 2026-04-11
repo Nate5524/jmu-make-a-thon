@@ -2101,7 +2101,7 @@
       async function transcribeAudio(blob) {
         setStatus("Transcribing...");
         try {
-          const result = await puter.ai.speech2txt(blob);
+          const result = await puter.ai.speech2txt(blob, { model: "whisper-1" });
           const text = (typeof result === "string" ? result : result?.text || "").trim();
           if (text) {
             await sendToJarvis(text);
