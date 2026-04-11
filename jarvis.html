@@ -125,9 +125,21 @@
       background: rgba(56,189,248,.06);
       border-left: 3px solid var(--accent);
       border-radius: 4px;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: .35rem;
     }
+    .event-info { flex: 1; min-width: 0; }
     .event-time { color: var(--accent); font-weight: 600; font-size: .7rem; }
     .event-summary { color: var(--text); }
+    .event-actions { display: flex; gap: .15rem; flex-shrink: 0; }
+    .event-actions button {
+      background: none; border: none; cursor: pointer; padding: 2px;
+      color: var(--text-dim); transition: color .2s;
+    }
+    .event-actions button:hover { color: var(--accent); }
+    .event-actions button.del-btn:hover { color: var(--danger); }
     .no-items { color: var(--text-dim); font-size: .8rem; font-style: italic; }
 
     .smart-home-grid {
@@ -348,7 +360,9 @@
     .add-event-btn:hover { border-color: var(--accent); background: rgba(56,189,248,.06); }
 
     .event-form { margin-top: .5rem; display: flex; flex-direction: column; gap: .4rem; }
-    .event-form input {
+    .event-form input[type="text"],
+    .event-form input[type="date"],
+    .event-form input[type="time"] {
       padding: .35rem .5rem;
       border: 1px solid var(--accent-dim);
       border-radius: 6px;
@@ -361,6 +375,10 @@
     .event-form input:focus { border-color: var(--accent); }
     .event-form .row { display: flex; gap: .35rem; }
     .event-form .row input { flex: 1; min-width: 0; }
+    .event-form .checkbox-row {
+      display: flex; align-items: center; gap: .4rem; font-size: .78rem; color: var(--text-dim);
+    }
+    .event-form .checkbox-row input[type="checkbox"] { accent-color: var(--accent); }
     .event-form-actions { display: flex; gap: .35rem; margin-top: .15rem; }
     .event-form-actions button {
       flex: 1;
@@ -375,6 +393,23 @@
     .event-form-actions .save-btn:hover { background: var(--accent); color: var(--bg); }
     .event-form-actions .cancel-btn { background: transparent; color: var(--text-dim); }
     .event-form-actions .cancel-btn:hover { border-color: var(--text-dim); }
+
+    /* dev toolbar */
+    #devToolbar {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .35rem .75rem;
+      background: #1a1a2e; border-bottom: 1px solid #f59e0b44;
+      font-size: .72rem;
+    }
+    #devToolbar .dev-label {
+      font-weight: 700; color: #f59e0b; letter-spacing: .08em;
+    }
+    #devToolbar button {
+      padding: .25rem .6rem; border: 1px solid #f59e0b44; border-radius: 4px;
+      background: transparent; color: #f59e0b; font-size: .7rem; cursor: pointer;
+      transition: background .15s;
+    }
+    #devToolbar button:hover { background: #f59e0b22; }
 
     /* responsive */
     @media (max-width: 700px) {
@@ -410,13 +445,16 @@
           <div class="event-form">
             <input type="text" id="evSummary" placeholder="Event title" />
             <input type="date" id="evDate" />
-            <div class="row">
+            <label class="checkbox-row">
+              <input type="checkbox" id="evAllDay" onchange="toggleAllDayFields()" /> All day
+            </label>
+            <div class="row" id="evTimeRow">
               <input type="time" id="evStart" />
               <input type="time" id="evEnd" />
             </div>
             <div class="event-form-actions">
-              <button class="cancel-btn" onclick="toggleEventForm()">Cancel</button>
-              <button class="save-btn" onclick="createEventFromForm()">Save</button>
+              <button class="cancel-btn" onclick="cancelEventForm()">Cancel</button>
+              <button class="save-btn" id="evSaveBtn" onclick="submitEventForm()">Save</button>
             </div>
           </div>
         </div>
@@ -545,65 +583,161 @@ function renderCalendar() {
     return;
   }
   el.innerHTML = '<ul class="event-list">' + calendarEvents.map(ev => {
-    const start = ev.start ? new Date(ev.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'All day';
-    return `<li><span class="event-time">${start}</span> <span class="event-summary">${escapeHtml(ev.summary || '(No title)')}</span></li>`;
+    const timeLabel = ev.allDay
+      ? 'All day'
+      : (ev.start ? new Date(ev.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
+    const idAttr = escapeHtml(ev.id || '');
+    return `<li>
+      <span class="event-info"><span class="event-time">${timeLabel}</span> <span class="event-summary">${escapeHtml(ev.summary || '(No title)')}</span></span>
+      <span class="event-actions">
+        <button title="Edit" onclick="startEditEvent('${idAttr}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="del-btn" title="Delete" onclick="confirmDeleteEvent('${idAttr}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+      </span>
+    </li>`;
   }).join('') + '</ul>';
 }
 
-// ─── Event creation form ──────────────────────────────────────────────────────
+// ─── Event form (create + edit) ───────────────────────────────────────────────
+let editingEventId = null;
+
+function toggleAllDayFields() {
+  const allDay = document.getElementById('evAllDay').checked;
+  document.getElementById('evTimeRow').style.display = allDay ? 'none' : 'flex';
+}
+
+function openEventForm(prefill) {
+  const container = document.getElementById('eventFormContainer');
+  container.style.display = 'block';
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('evSummary').value = prefill?.summary || '';
+  document.getElementById('evDate').value = prefill?.date || today;
+  document.getElementById('evAllDay').checked = !!prefill?.allDay;
+  document.getElementById('evStart').value = prefill?.startTime || '';
+  document.getElementById('evEnd').value = prefill?.endTime || '';
+  toggleAllDayFields();
+  document.getElementById('evSaveBtn').textContent = prefill?.editId ? 'Update' : 'Save';
+  editingEventId = prefill?.editId || null;
+  document.getElementById('evSummary').focus();
+}
+
 function toggleEventForm() {
   const container = document.getElementById('eventFormContainer');
-  const isVisible = container.style.display !== 'none';
-  container.style.display = isVisible ? 'none' : 'block';
-  if (!isVisible) {
-    const today = new Date();
-    document.getElementById('evDate').value = today.toISOString().slice(0, 10);
-    document.getElementById('evSummary').value = '';
-    document.getElementById('evStart').value = '';
-    document.getElementById('evEnd').value = '';
-    document.getElementById('evSummary').focus();
+  if (container.style.display !== 'none') {
+    cancelEventForm();
+  } else {
+    openEventForm();
   }
 }
 
-async function createEventFromForm() {
-  const summary = document.getElementById('evSummary').value.trim();
-  const date = document.getElementById('evDate').value;
-  const startTime = document.getElementById('evStart').value;
-  const endTime = document.getElementById('evEnd').value;
+function cancelEventForm() {
+  document.getElementById('eventFormContainer').style.display = 'none';
+  editingEventId = null;
+  document.getElementById('evSaveBtn').textContent = 'Save';
+}
 
-  if (!summary || !date || !startTime || !endTime) {
-    alert('Please fill in all fields.');
-    return;
+function startEditEvent(eventId) {
+  const ev = calendarEvents.find(e => e.id === eventId);
+  if (!ev) return;
+  const prefill = { editId: eventId, summary: ev.summary, allDay: ev.allDay };
+  if (ev.allDay) {
+    prefill.date = ev.start;
+  } else if (ev.start) {
+    const d = new Date(ev.start);
+    prefill.date = ev.start.slice(0, 10);
+    prefill.startTime = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+    if (ev.end) {
+      const de = new Date(ev.end);
+      prefill.endTime = de.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
   }
+  openEventForm(prefill);
+}
 
-  const start = `${date}T${startTime}:00`;
-  const end = `${date}T${endTime}:00`;
-
+async function confirmDeleteEvent(eventId) {
+  if (!confirm('Delete this event?')) return;
   try {
-    setStatus('Creating event...');
-    const resp = await fetch('/api/calendar/events', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ summary, start, end }),
-    });
+    setStatus('Deleting event...');
+    const resp = await fetch(`/api/calendar/events/${encodeURIComponent(eventId)}`, { method: 'DELETE' });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
       throw new Error(err.error || 'Failed');
     }
-    toggleEventForm();
     await fetchCalendarEvents();
-    setStatus('Event created!');
+    setStatus('Event deleted');
   } catch (e) {
-    console.error('Create event error:', e);
-    setStatus('Failed to create event: ' + e.message);
+    console.error('Delete event error:', e);
+    setStatus('Failed to delete event: ' + e.message);
+  }
+}
+
+function buildEventPayload() {
+  const summary = document.getElementById('evSummary').value.trim();
+  const date = document.getElementById('evDate').value;
+  const allDay = document.getElementById('evAllDay').checked;
+  if (!summary || !date) return null;
+  if (allDay) {
+    return { summary, allDay: true, startDate: date };
+  }
+  const startTime = document.getElementById('evStart').value;
+  const endTime = document.getElementById('evEnd').value;
+  if (!startTime || !endTime) return null;
+  return { summary, start: `${date}T${startTime}:00`, end: `${date}T${endTime}:00` };
+}
+
+async function submitEventForm() {
+  const payload = buildEventPayload();
+  if (!payload) {
+    alert('Please fill in all required fields.');
+    return;
+  }
+  try {
+    if (editingEventId) {
+      setStatus('Updating event...');
+      const resp = await fetch(`/api/calendar/events/${encodeURIComponent(editingEventId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed');
+      }
+      setStatus('Event updated!');
+    } else {
+      setStatus('Creating event...');
+      const resp = await fetch('/api/calendar/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed');
+      }
+      setStatus('Event created!');
+    }
+    cancelEventForm();
+    await fetchCalendarEvents();
+  } catch (e) {
+    console.error('Event form error:', e);
+    setStatus('Failed: ' + e.message);
   }
 }
 
 async function createCalendarEvent(summary, startISO, endISO, description) {
+  const body = { summary, description };
+  if (startISO && !startISO.includes('T')) {
+    body.allDay = true;
+    body.startDate = startISO;
+    if (endISO && !endISO.includes('T')) body.endDate = endISO;
+  } else {
+    body.start = startISO;
+    body.end = endISO;
+  }
   const resp = await fetch('/api/calendar/events', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ summary, start: startISO, end: endISO, description }),
+    body: JSON.stringify(body),
   });
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
@@ -611,6 +745,28 @@ async function createCalendarEvent(summary, startISO, endISO, description) {
   }
   await fetchCalendarEvents();
   return resp.json();
+}
+
+async function deleteCalendarEvent(eventId) {
+  const resp = await fetch(`/api/calendar/events/${encodeURIComponent(eventId)}`, { method: 'DELETE' });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to delete event');
+  }
+  await fetchCalendarEvents();
+}
+
+async function updateCalendarEvent(eventId, fields) {
+  const resp = await fetch(`/api/calendar/events/${encodeURIComponent(eventId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to update event');
+  }
+  await fetchCalendarEvents();
 }
 
 // ─── Weather (Open-Meteo, no API key) ────────────────────────────────────────
@@ -702,9 +858,15 @@ function buildContextString() {
 
   if (calendarEvents.length) {
     const evStr = calendarEvents.map(ev => {
-      const start = ev.start ? new Date(ev.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'All day';
-      const end = ev.end ? new Date(ev.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-      return `- ${start}${end ? ' to ' + end : ''}: ${ev.summary || '(No title)'}`;
+      let timeRange;
+      if (ev.allDay) {
+        timeRange = 'All day';
+      } else {
+        const start = ev.start ? new Date(ev.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+        const end = ev.end ? new Date(ev.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+        timeRange = start + (end ? ' to ' + end : '');
+      }
+      return `- [id:${ev.id}] ${timeRange}: ${ev.summary || '(No title)'}`;
     }).join('\n');
     parts.push(`Today's calendar events:\n${evStr}`);
   } else {
@@ -727,7 +889,7 @@ let systemPromptPromise = null;
 function getSystemPrompt() {
   if (systemPromptCache != null) return Promise.resolve(systemPromptCache);
   if (!systemPromptPromise) {
-    systemPromptPromise = fetch('./jarvis-system-prompt.md')
+    systemPromptPromise = fetch(`./jarvis-system-prompt.md?cb=${Date.now()}`)
       .then((r) => {
         if (!r.ok) throw new Error('Failed to load jarvis-system-prompt.md');
         return r.text();
@@ -738,6 +900,11 @@ function getSystemPrompt() {
       });
   }
   return systemPromptPromise;
+}
+
+function invalidateSystemPrompt() {
+  systemPromptCache = null;
+  systemPromptPromise = null;
 }
 
 function postChatMessage(role, content) {
@@ -782,14 +949,52 @@ async function sendToJarvis(userText) {
     const response = await puter.ai.chat(messages, { model: 'gpt-4o-mini', stream: false });
     let reply = response.message?.content || response?.toString() || 'I seem to be at a loss for words.';
 
-    // Parse and execute [CREATE_EVENT] blocks
+    // Parse and execute action blocks: DELETE, EDIT, CREATE (in that order)
+    const deleteMatch = reply.match(/\[DELETE_EVENT\]([\s\S]*?)\[\/DELETE_EVENT\]/);
+    if (deleteMatch) {
+      try {
+        const d = JSON.parse(deleteMatch[1]);
+        await deleteCalendarEvent(d.id);
+      } catch (err) {
+        console.error('Failed to delete event from Jarvis:', err);
+      }
+      reply = reply.replace(/\[DELETE_EVENT\][\s\S]*?\[\/DELETE_EVENT\]/, '').trim();
+    }
+
+    const editMatch = reply.match(/\[EDIT_EVENT\]([\s\S]*?)\[\/EDIT_EVENT\]/);
+    if (editMatch) {
+      try {
+        const d = JSON.parse(editMatch[1]);
+        const { id, ...fields } = d;
+        const patch = {};
+        if (fields.summary !== undefined) patch.summary = fields.summary;
+        if (fields.description !== undefined) patch.description = fields.description;
+        if (fields.allDay) {
+          patch.allDay = true;
+          patch.startDate = fields.date;
+          if (fields.endDate) patch.endDate = fields.endDate;
+        } else if (fields.date && fields.startTime && fields.endTime) {
+          patch.start = `${fields.date}T${fields.startTime}:00`;
+          patch.end = `${fields.date}T${fields.endTime}:00`;
+        }
+        await updateCalendarEvent(id, patch);
+      } catch (err) {
+        console.error('Failed to edit event from Jarvis:', err);
+      }
+      reply = reply.replace(/\[EDIT_EVENT\][\s\S]*?\[\/EDIT_EVENT\]/, '').trim();
+    }
+
     const eventMatch = reply.match(/\[CREATE_EVENT\]([\s\S]*?)\[\/CREATE_EVENT\]/);
     if (eventMatch) {
       try {
         const evData = JSON.parse(eventMatch[1]);
-        const startISO = `${evData.date}T${evData.startTime}:00`;
-        const endISO = `${evData.date}T${evData.endTime}:00`;
-        await createCalendarEvent(evData.summary, startISO, endISO);
+        if (evData.allDay) {
+          await createCalendarEvent(evData.summary, evData.date, undefined);
+        } else {
+          const startISO = `${evData.date}T${evData.startTime}:00`;
+          const endISO = `${evData.date}T${evData.endTime}:00`;
+          await createCalendarEvent(evData.summary, startISO, endISO);
+        }
       } catch (evErr) {
         console.error('Failed to create event from Jarvis:', evErr);
       }
@@ -1067,6 +1272,67 @@ document.getElementById('smartHomeContent').addEventListener('change', async (e)
   if (commitSucceeded) setStatus('Ready');
 });
 
+// ─── Dev tools ────────────────────────────────────────────────────────────────
+const INITIAL_GREETING = 'Good evening. I\'m Jarvis, your personal assistant. How may I help you today? You can type below or press the microphone to speak.';
+
+function getAdminToken() {
+  const stored = sessionStorage.getItem('admin_token');
+  if (stored) return stored;
+  const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
+  if (isLocal) return 'dev-demo-secret';
+  const token = prompt('Enter admin secret:');
+  if (token) sessionStorage.setItem('admin_token', token);
+  return token || '';
+}
+
+function resetChatTranscript() {
+  conversationHistory = [];
+  messagesEl.innerHTML = `<div class="msg assistant"><div class="label">Jarvis</div>${escapeHtml(INITIAL_GREETING)}</div>`;
+}
+
+async function devReloadPrompt() {
+  invalidateSystemPrompt();
+  await getSystemPrompt();
+  setStatus('System prompt reloaded');
+}
+
+async function devClearChat() {
+  const token = getAdminToken();
+  if (!token) { setStatus('No admin token — aborted'); return; }
+  try {
+    const r = await fetch('./api/chat', {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.error || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    const rev = Number(data.revision);
+    if (Number.isFinite(rev)) lastDemoRevision = rev;
+    resetChatTranscript();
+    setStatus('Chat history cleared');
+  } catch (e) {
+    console.error('Clear chat failed:', e);
+    setStatus('Failed to clear chat: ' + e.message);
+  }
+}
+
+function initDevToolbar() {
+  const params = new URLSearchParams(location.search);
+  if (params.has('dev')) sessionStorage.setItem('dev_mode', '1');
+  if (sessionStorage.getItem('dev_mode') !== '1') return;
+
+  const bar = document.createElement('div');
+  bar.id = 'devToolbar';
+  bar.innerHTML = `
+    <span class="dev-label">DEV</span>
+    <button onclick="devReloadPrompt()">Reload Prompt</button>
+    <button onclick="devClearChat()">Clear Chat</button>`;
+  document.body.prepend(bar);
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
   fetchWeather();
@@ -1074,6 +1340,7 @@ window.addEventListener('load', () => {
   pollDemoState();
   setInterval(pollDemoState, 2000);
   setInterval(fetchCalendarEvents, 30000);
+  initDevToolbar();
 });
 </script>
 
