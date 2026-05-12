@@ -1,0 +1,97 @@
+﻿    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0e17;
+      --surface: #111827;
+      --surface-2: #1a2236;
+      --accent: #38bdf8;
+      --accent-dim: #1e3a5f;
+      --text: #e2e8f0;
+      --text-dim: #94a3b8;
+      --danger: #f87171;
+      --success: #4ade80;
+      --radius: 12px;
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .75rem 1.25rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--accent-dim);
+    }
+    .logo {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+    a.logo { text-decoration: none; color: inherit; }
+    .nav-links { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: flex-end; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      padding: .45rem .9rem;
+      border: 1px solid var(--accent-dim);
+      border-radius: var(--radius);
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: .8rem;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border .2s;
+    }
+    .btn:hover { border-color: var(--accent); }
+    .btn.primary { background: var(--accent-dim); border-color: var(--accent); }
+    main { max-width: 560px; margin: 0 auto; padding: 1.25rem; width: 100%; flex: 1; }
+    h1 { font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-dim); font-weight: 600; }
+    .card {
+      background: var(--surface-2);
+      border: 1px solid var(--accent-dim);
+      border-radius: var(--radius);
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    .card h2 {
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--accent);
+      margin-bottom: .65rem;
+    }
+    label { display: block; font-size: .75rem; color: var(--text-dim); margin-bottom: .35rem; }
+    input[type="password"], textarea {
+      width: 100%;
+      padding: .55rem .75rem;
+      border: 1px solid var(--accent-dim);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      font-size: .9rem;
+      margin-bottom: .75rem;
+    }
+    textarea { min-height: 120px; resize: vertical; font-family: inherit; }
+    .device-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .5rem 0;
+      border-bottom: 1px solid var(--accent-dim);
+      font-size: .9rem;
+    }
+    .device-row:last-child { border-bottom: none; }
+    .hint { font-size: .75rem; color: var(--text-dim); margin-top: .5rem; line-height: 1.4; }
+    .status { font-size: .8rem; margin-top: .75rem; min-height: 1.2em; }
+    .status.err { color: var(--danger); }
+    .status.ok { color: var(--success); }
+    .rev { font-size: .7rem; color: var(--text-dim); margin-top: .5rem; }
+    .hint.lead { margin-bottom: 1rem; }
+    .hint code { color: var(--accent); }

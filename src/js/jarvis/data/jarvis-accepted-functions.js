@@ -1,8 +1,7 @@
 /**
  * Puter.ai.chat() tool definitions for Jarvis calendar actions.
- * Loaded as a classic script before jarvis.html inline code (sets global JARVIS_TOOLS).
  */
-var JARVIS_TOOLS = [
+export const JARVIS_TOOLS = [
   {
     type: 'function',
     function: {

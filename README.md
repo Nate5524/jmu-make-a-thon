@@ -14,7 +14,7 @@ npm install
 
 ## Run locally
 
-The app is served by a single Node server ([`server.mjs`](server.mjs)) so development and production use the same API and static hosting behavior.
+The app is served by a single Node server ([`server/index.mjs`](server/index.mjs)) so development and production use the same API and static hosting behavior.
 
 **Development** (Vite dev middleware + shared demo state API):
 
@@ -22,7 +22,7 @@ The app is served by a single Node server ([`server.mjs`](server.mjs)) so develo
 npm run dev
 ```
 
-Then open [http://localhost:3000/](http://localhost:3000/) (or the port in your `.env`). Jarvis is at [`./jarvis.html`](./jarvis.html) relative to that origin (e.g. `http://localhost:3000/jarvis.html`).
+Then open [http://localhost:3000/](http://localhost:3000/) (or the port in your `.env`). Jarvis lives under [`src/html/jarvis.html`](src/html/jarvis.html) and is served at **`http://localhost:3000/src/html/jarvis.html`** (short URL **`/jarvis.html`** redirects there). The Jarvis UI is a React app mounted from [`src/js/jarvis/main.jsx`](src/js/jarvis/main.jsx) via Vite.
 
 ### HTTPS via ngrok (required for microphone)
 
@@ -51,14 +51,14 @@ npm start
 
 Extra instructions merged into Jarvis's system prompt are **not** editable from any web UI.
 
-- Edit the default string **`DEFAULT_JARVIS_PERSONALITY`** in [`server.mjs`](server.mjs), **or**
+- Edit the default string **`DEFAULT_JARVIS_PERSONALITY`** in [`server/state.mjs`](server/state.mjs), **or**
 - Set **`JARVIS_PERSONALITY`** in `.env` (supports a long single-line or multiline value depending on your shell).
 
 Restart the server after changes.
 
-## Internal dev page (`admin.html`)
+## Internal dev page (`src/html/admin.html`)
 
-[`admin.html`](admin.html) is for **developers only**: seed smart-home device on/off defaults via `PUT /api/state` with `ADMIN_SECRET`. It is **not** linked from the product. In **production**, `admin.html` is **not served** unless you set **`ENABLE_ADMIN_UI=true`** in the environment.
+[`src/html/admin.html`](src/html/admin.html) is for **developers only**: seed smart-home device on/off defaults via `PUT /api/state` with `ADMIN_SECRET`. It is **not** linked from the product. In **production**, that page is **not served** unless you set **`ENABLE_ADMIN_UI=true`** in the environment (URL: **`/src/html/admin.html`**; **`/admin.html`** redirects there).
 
 ## Environment
 
@@ -69,13 +69,15 @@ Copy [`.env.example`](.env.example) to `.env` and adjust as needed.
 | `PORT`              | HTTP port (default `3000`). |
 | `ADMIN_SECRET`      | Required for **writes** to `PUT /api/state` in production. In development, if unset, the server uses a default (`dev-demo-secret`) and logs a reminder. |
 | `JARVIS_PERSONALITY` | Optional. Overrides the in-code default extra Jarvis instructions. |
-| `ENABLE_ADMIN_UI`   | In **production** only: set to `true` to allow serving `./admin.html`. |
+| `ENABLE_ADMIN_UI`   | In **production** only: set to `true` to allow serving `/src/html/admin.html` (or `/admin.html`, which redirects). |
 | `LIGHTS_WEBHOOK_URL` | Optional. Full URL of the Home Assistant webhook that toggles the physical lights. If unset, the GUI controls update demo state only. |
 | `BLINDS_OPEN_WEBHOOK_URL` | Optional. HA webhook URL to **open/raise** blinds. |
 | `BLINDS_CLOSE_WEBHOOK_URL` | Optional. HA webhook URL to **close/lower** blinds. |
-| `LIGHTS_SSH_HOST` | Optional. `user@host` for SSH-based webhook delivery (needed when HA only responds to localhost). Used for both lights and blinds. |
+| `LIGHTS_SSH_HOST` | Optional. `user@host` for SSH-based **lights** webhook delivery (when HA only responds to localhost). |
+| `BLINDS_SSH_HOST` | Optional. `user@host` for SSH-based **blinds** webhooks. If unset, blinds reuse `LIGHTS_SSH_HOST` when that is set (same HA box). |
 | `GOOGLE_CALENDAR_ID` | The Google Calendar ID to read/write events. Found in Calendar Settings > Integrate calendar. |
-| `CALENDAR_SERVICE_ACCOUNT` | The service account email (informational; the actual auth uses the key file). |
+| `GOOGLE_CALENDAR_KEY_FILE` | Path to the service account JSON key (absolute, or relative to the repo root). Required with `GOOGLE_CALENDAR_ID` for calendar API. If unset, `GOOGLE_APPLICATION_CREDENTIALS` is used when set. |
+| `CALENDAR_SERVICE_ACCOUNT` | Optional. Service account email (informational only; auth uses the JSON key file above). |
 
 **Do not commit `.env`** (it is gitignored).
 
@@ -98,11 +100,11 @@ Jarvis polls `GET ./api/state` about every two seconds and merges `feed.personal
 
 ## Dev toolbar
 
-Add `?dev=1` to the Jarvis URL (e.g. `http://localhost:3000/jarvis.html?dev=1`) to enable a developer toolbar at the top of the page. It persists for the browser tab session via `sessionStorage`.
+Add `?dev=1` to the Jarvis URL (e.g. `http://localhost:3000/src/html/jarvis.html?dev=1` or `http://localhost:3000/jarvis.html?dev=1`) to enable a developer toolbar at the top of the page. It persists for the browser tab session via `sessionStorage`.
 
 **Toolbar actions:**
 
-- **Reload Prompt** -- invalidates the cached `jarvis-system-prompt.md` and re-fetches it from the server (cache-busted). Useful after editing the prompt file without reloading the page.
+- **Reload Prompt** -- invalidates the cached system prompt file ([`src/js/jarvis/data/jarvis-system-prompt.md`](src/js/jarvis/data/jarvis-system-prompt.md)) and re-fetches it from the server (cache-busted). Useful after editing the prompt file without reloading the page.
 - **Clear Chat** -- calls `DELETE /api/chat` to wipe server-side history, then resets the client-side conversation and DOM back to the initial greeting. On localhost the default dev secret is used automatically; on other hosts you'll be prompted for the admin secret once per session.
 
 ## Google Calendar
@@ -112,13 +114,13 @@ Calendar integration is handled **server-side** via a Google Cloud service accou
 **Setup (only needs to be done once and already done - see the google doc for information on private keys):**
 
 1. In [Google Cloud Console](https://console.cloud.google.com/), enable the **Google Calendar API** for your project.
-2. Create a **service account** and download its JSON key file. Place it in the project root as `jmu-make-a-thon-97645ef3d37e.json` (this file is gitignored).
+2. Create a **service account** and download its JSON key file. Store it outside version control (e.g. `google-calendar-service-account.json` in the repo root, gitignored) and set **`GOOGLE_CALENDAR_KEY_FILE`** in `.env` to that path (absolute or relative to the repo root).
 3. In Google Calendar, **share** the target calendar with the service account email (give it "Make changes to events" permission).
 4. Set `GOOGLE_CALENDAR_ID` in `.env` to the calendar's ID (found in Calendar Settings > Integrate calendar).
 
 **Endpoints:**
 
-- `GET /api/calendar/events` -- returns today's events. Each event includes `id`, `summary`, `description`, `allDay`, `start`, and `end`.
+- `GET /api/calendar/events` -- returns events for a time range. With no query params, the range is the **current UTC calendar day** (midnight–midnight UTC). Optional `timeMin` and `timeMax` (ISO datetimes) override that. Each event includes `id`, `summary`, `description`, `allDay`, `start`, and `end`.
 - `POST /api/calendar/events` -- creates an event.
   - **Timed:** `{ "summary": "...", "start": "YYYY-MM-DDTHH:MM:00", "end": "YYYY-MM-DDTHH:MM:00" }`
   - **All-day:** `{ "summary": "...", "allDay": true, "startDate": "YYYY-MM-DD" }` (optional `endDate` for multi-day; exclusive end like Google Calendar).
@@ -132,9 +134,9 @@ Jarvis can create, edit, and delete events via natural language (e.g. "add a mee
 On a host (including your device):
 
 1. Set `ADMIN_SECRET` (and `PORT` if the platform does not inject it).
-2. Set `JARVIS_PERSONALITY` if you want custom Jarvis instructions without redeploying code changes to `server.mjs`.
-3. Optionally set `ENABLE_ADMIN_UI=true` if you need `./admin.html` in production.
-4. Place the service account key file (`jmu-make-a-thon-97645ef3d37e.json`) on the host and set `GOOGLE_CALENDAR_ID`.
+2. Set `JARVIS_PERSONALITY` if you want custom Jarvis instructions without redeploying code changes to [`server/state.mjs`](server/state.mjs).
+3. Optionally set `ENABLE_ADMIN_UI=true` if you need `/src/html/admin.html` in production.
+4. Place the service account JSON key on the host, set **`GOOGLE_CALENDAR_KEY_FILE`** to its path, and set **`GOOGLE_CALENDAR_ID`**.
 5. Run `npm run build` then `npm start` (or equivalent start command).
 
 The server listens on `0.0.0.0` so it is reachable on a LAN IP for demos when firewall rules allow.

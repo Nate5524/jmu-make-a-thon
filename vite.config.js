@@ -12,11 +12,12 @@ export default defineConfig({
     allowedHosts: true,
   },
   build: {
+    target: "es2022",
     rollupOptions: {
       input: {
-        main: resolve(__dirname, "index.html"),
-        jarvis: resolve(__dirname, "jarvis.html"),
-        admin: resolve(__dirname, "admin.html"),
+        main: resolve(__dirname, "src/html/index.html"),
+        jarvis: resolve(__dirname, "src/html/jarvis.html"),
+        admin: resolve(__dirname, "src/html/admin.html"),
       },
     },
   },

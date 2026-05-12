@@ -1,0 +1,36 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PowerSleep — Dev smart home</title>
+  <link rel="stylesheet" href="../styles/admin.css" />
+</head>
+<body>
+  <header>
+    <a class="logo" href="./index.html">PowerSleep</a>
+    <nav class="nav-links">
+      <a class="btn" href="./jarvis.html">Jarvis</a>
+    </nav>
+  </header>
+  <main>
+    <h1>Dev — smart home seed</h1>
+    <p class="hint lead">Internal page (not linked in the app). Devices: blinds and lights only. Use <code>ADMIN_SECRET</code> from <code>.env</code>; in local dev the default is <code>dev-demo-secret</code> if unset. In production, set <code>ENABLE_ADMIN_UI=true</code> to serve this file.</p>
+
+    <div class="card">
+      <h2>Admin key</h2>
+      <label for="adminKey">Bearer token (stored in session for this tab)</label>
+      <input type="password" id="adminKey" placeholder="dev-demo-secret" autocomplete="off" />
+    </div>
+
+    <div class="card">
+      <h2>Smart home (demo)</h2>
+      <div id="devicesRoot"></div>
+    </div>
+
+    <button type="button" class="btn primary" id="saveBtn">Save changes</button>
+    <div class="status" id="status"></div>
+    <div class="rev" id="revLine"></div>
+  </main>
+  <script type="module" src="/src/js/admin/admin-page.js"></script></body>
+</html>
